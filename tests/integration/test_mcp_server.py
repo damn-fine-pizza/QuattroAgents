@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from quattroagents import runtime_version
+
 
 def test_mcp_server_does_not_respond_to_initialized_notification() -> None:
     root = Path(__file__).parents[2]
@@ -39,7 +41,7 @@ def test_mcp_server_does_not_respond_to_initialized_notification() -> None:
         "id": 1,
         "result": {
             "protocolVersion": "2024-11-05",
-            "serverInfo": {"name": "quattroagents", "version": "0.2.0"},
+            "serverInfo": {"name": "quattroagents", "version": runtime_version()},
             "capabilities": {"tools": {}, "resources": {}},
         },
     }
@@ -61,4 +63,57 @@ def test_mcp_server_does_not_respond_to_initialized_notification() -> None:
             "lease_release",
             "decision_propose",
         )
+    ]
+
+
+def test_mcp_server_persists_and_queries_task_milestones(tmp_path: Path) -> None:
+    root = Path(__file__).parents[2]
+    requests = "\n".join(
+        (
+            json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "task_create",
+                        "arguments": {
+                            "task_id": "TASK-001",
+                            "payload": {"milestone": "0.2.0"},
+                        },
+                    },
+                }
+            ),
+            json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "task_query",
+                        "arguments": {"milestone": "0.2.0"},
+                    },
+                }
+            ),
+        )
+    )
+    result = subprocess.run(
+        [sys.executable, "-m", "quattroagents", "mcp", "serve", "--project", str(tmp_path)],
+        cwd=root,
+        input=f"{requests}\n",
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    responses = [json.loads(line) for line in result.stdout.splitlines()]
+    query = json.loads(responses[1]["result"]["content"][0]["text"])
+    assert query == [
+        {
+            "id": "TASK-001",
+            "payload": {"milestone": "0.2.0"},
+            "milestone": "0.2.0",
+            "status": "ready",
+            "claimant": None,
+        }
     ]

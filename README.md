@@ -31,7 +31,7 @@ Use `.venv/bin/python -m quattroagents metrics report --format markdown` for a d
 
 `.quattroagents/` is authoritative; Codex (`AGENTS.md`, `.codex/`, `.agents/`) and Claude Code (`CLAUDE.md`, `.claude/`, `.mcp.json`) are generated adapters. The core uses abstract `small`, `medium`, `large`, and `long_horizon` tiers rather than commercial model names. `long_horizon` is manual-only.
 
-The local `quattroagents` MCP is SQLite/WAL-backed and exposes a small task/lease control plane. No remote service or secret is needed for baseline operation.
+The local `quattroagents` MCP is SQLite/WAL-backed and exposes a small task/lease control plane. Task contracts may include a release milestone such as `0.2.0`; query the deterministic mapping with `qagents tasks list --milestone 0.2.0 --json`. No remote service or secret is needed for baseline operation.
 
 ## Safety
 

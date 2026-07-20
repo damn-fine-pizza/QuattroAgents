@@ -12,11 +12,28 @@ class ControlPlane:
     def __init__(self, database: Path) -> None:
         self.database = database
 
-    def create(self, task_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def create(
+        self, task_id: str, payload: dict[str, Any], milestone: str | None = None
+    ) -> dict[str, Any]:
+        payload_milestone = payload.get("milestone")
+        if payload_milestone is not None and not isinstance(payload_milestone, str):
+            raise ValueError("milestone must be a string")
+        if milestone is not None and not isinstance(milestone, str):
+            raise ValueError("milestone must be a string")
+        if (
+            milestone is not None
+            and payload_milestone is not None
+            and milestone != payload_milestone
+        ):
+            raise ValueError("milestone must match the task contract")
+        selected_milestone = milestone if milestone is not None else payload_milestone
+        if selected_milestone is not None and not selected_milestone.strip():
+            raise ValueError("milestone must not be empty")
         with connect(self.database) as con:
             con.execute(
-                "INSERT INTO tasks VALUES (?, ?, 'ready', NULL, ?)",
-                (task_id, json.dumps(payload), time.time()),
+                "INSERT INTO tasks (id, payload, milestone, status, claimant, updated_at) "
+                "VALUES (?, ?, ?, 'ready', NULL, ?)",
+                (task_id, json.dumps(payload), selected_milestone, time.time()),
             )
         result = self.query(task_id)
         assert isinstance(result, dict)
@@ -51,16 +68,27 @@ class ControlPlane:
             )
             return cur.rowcount == 1
 
-    def query(self, task_id: str | None = None) -> dict[str, Any] | list[dict[str, Any]]:
+    def query(
+        self, task_id: str | None = None, milestone: str | None = None
+    ) -> dict[str, Any] | list[dict[str, Any]]:
         with connect(self.database) as con:
-            rows = con.execute(
-                "SELECT * FROM tasks" + (" WHERE id=?" if task_id else " ORDER BY id"),
-                (() if not task_id else (task_id,)),
-            ).fetchall()
+            conditions: list[str] = []
+            parameters: list[str] = []
+            if task_id:
+                conditions.append("id=?")
+                parameters.append(task_id)
+            if milestone is not None:
+                conditions.append("milestone=?")
+                parameters.append(milestone)
+            statement = "SELECT * FROM tasks"
+            if conditions:
+                statement += " WHERE " + " AND ".join(conditions)
+            rows = con.execute(statement + " ORDER BY id", parameters).fetchall()
         values = [
             {
                 "id": r["id"],
                 "payload": json.loads(r["payload"]),
+                "milestone": r["milestone"],
                 "status": r["status"],
                 "claimant": r["claimant"],
             }

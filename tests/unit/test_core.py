@@ -26,6 +26,19 @@ def test_protected_rejected_for_small() -> None:
     assert not allow_worker(contract(), Tier.SMALL, ["src/quattroagents/core/routing.py"])[0]
 
 
+def test_task_contract_preserves_optional_milestone() -> None:
+    assert (
+        TaskContract(
+            "TASK-002",
+            "test",
+            Risk.LOW,
+            [{"id": "REQ-1", "text": "works"}],
+            milestone="0.2.0",
+        ).to_dict()["milestone"]
+        == "0.2.0"
+    )
+
+
 def test_merge_and_path_validation(tmp_path: Path) -> None:
     assert merge_json({"a": {"x": 1}}, {"a": {"y": 2}}) == {"a": {"x": 1, "y": 2}}
     assert safe_path(tmp_path, "a").parent == tmp_path.resolve()
