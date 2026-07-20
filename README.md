@@ -19,6 +19,10 @@ Setup safely detects, but never installs or configures, optional `rtk` and `code
 
 Setup installs `pytest`, `ruff`, and `mypy` in the project `.[dev]` virtualenv; it does not require global installations. RTK resolves tools from `PATH`, so use `scripts/rtk.sh ruff check .` (and the analogous `pytest` or `mypy` commands) to expose `.venv/bin` to it. Keep the authoritative project checks on `.venv/bin/python -m pytest`, `.venv/bin/python -m ruff`, and `.venv/bin/python -m mypy`.
 
+### QuattroAgents MCP
+
+QuattroAgents exposes its local task and metrics control plane as a stdio MCP server. See the [MCP installation guide](docs/quattroagents-mcp.md) for direct `mcp add` commands that retrieve QuattroAgents from GitHub on first use, plus project-local and manual alternatives.
+
 ## Metrics report
 
 Use `.venv/bin/python -m quattroagents metrics report --format markdown` for a deterministic, human-readable benchmark summary. During 0.2, no execution samples are persisted, so the report explicitly shows zero values and does not infer savings or outcomes. The default JSON format remains available for machine consumers.
