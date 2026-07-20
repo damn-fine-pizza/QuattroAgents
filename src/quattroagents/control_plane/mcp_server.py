@@ -38,6 +38,7 @@ def serve(root: Path) -> int:
     database = root / ".quattroagents/control-plane.sqlite3"
     tasks, leases, runs = ControlPlane(database), Leases(str(database)), RunStore(database)
     for raw in sys.stdin:
+        request: dict[str, Any] | None = None
         try:
             request = json.loads(raw)
             method = request.get("method")
@@ -118,9 +119,14 @@ def serve(root: Path) -> int:
                 flush=True,
             )
         except Exception as exc:
+            request_id = request.get("id") if isinstance(request, dict) else None
             print(
                 json.dumps(
-                    {"jsonrpc": "2.0", "id": None, "error": {"code": -32000, "message": str(exc)}}
+                    {
+                        "jsonrpc": "2.0",
+                        "id": request_id,
+                        "error": {"code": -32000, "message": str(exc)},
+                    }
                 ),
                 flush=True,
             )
