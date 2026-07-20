@@ -2,6 +2,14 @@
 
 Codex generation uses trusted project `.codex/config.toml`, `AGENTS.md`, skills and agents. Existing Codex MCP servers are retained while QuattroAgents is configured through `.venv/bin/qagents`. Claude generation uses `CLAUDE.md`, `.claude/agents`, skills, settings and project `.mcp.json`. The adapter does not store credentials. Setup writes project-local Git hooks that use `.venv/bin/python` for validation, tests, linting and type checks.
 
+For Codex multi-agent work, agent lifecycle is intentionally provider-specific: the
+Codex coordinator uses the native Codex multi-agent tools to spawn, message and wait
+for workers. QuattroAgents MCP does not launch agents; it coordinates the durable
+task contract, claim, lease, run, snapshot, artifact and evidence records. The
+`qagents swarm plan` command remains plan-only. `max_threads`, where configured, is
+a concurrency ceiling chosen by the coordinator, not an automatic spawning command
+and not a number promised by QuattroAgents. See [Codex multi-agent coordination](codex-multi-agent.md).
+
 `scripts/setup.sh` optionally detects installed `rtk` and `codebase-memory-mcp` commands. Detection is re-runnable, makes no installation or MCP configuration changes, and reports a missing command without failing setup. Development tools (`pytest`, `ruff`, and `mypy`) are installed in `.venv`; use `scripts/rtk.sh` to make them available to RTK without global installs. `qagents doctor --format json` reports executable availability; it does not assert that an MCP server is configured or reachable.
 
 CI validates both generated adapters: Codex configuration, roles, skills and MCP preservation; and Claude settings, agents, skills and MCP configuration. See [quality gates](gates.md) for the exact installation, verification and delivery checks.

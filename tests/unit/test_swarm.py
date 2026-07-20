@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from quattroagents.core.swarm import (
@@ -56,9 +58,12 @@ def task() -> dict[str, object]:
 
 
 def test_swarm_plan_groups_independent_non_overlapping_workers() -> None:
-    plan = build_swarm_plan(task())
+    plan = build_swarm_plan(task(), 2)
 
     assert plan["mode"] == "plan_only"
+    assert plan["scheduling"] == {
+        "maximum_parallel_workers": 2,
+    }
     assert plan["waves"][0]["parallel"] is True
     assert [worker["id"] for worker in plan["waves"][0]["workers"]] == ["docs", "tests"]
     assert plan["waves"][0]["workers"][0]["context_summary"]["context_refs"] == [
@@ -68,7 +73,33 @@ def test_swarm_plan_groups_independent_non_overlapping_workers() -> None:
     assert plan["waves"][0]["workers"][0]["context_summary"]["user_intent"]["INTENT-1"] == (
         "Deliver a bounded swarm plan."
     )
-    assert "no agent or subagent is launched" in render_swarm_plan_markdown(plan).lower()
+    packet = plan["waves"][0]["workers"][0]
+    assert set(packet) >= {
+        "id",
+        "role",
+        "objective",
+        "requirements",
+        "allowed_files",
+        "forbidden_changes",
+        "context_refs",
+        "acceptance_commands",
+        "required_evidence",
+        "depends_on",
+        "risk",
+    }
+    assert packet["forbidden_changes"] == [
+        "Do not launch agents or subagents.",
+        "Do not modify files outside allowed_files.",
+    ]
+    assert packet["required_evidence"] == [
+        "Acceptance command results.",
+        "Changed-file list limited to allowed_files.",
+    ]
+    markdown = render_swarm_plan_markdown(plan).lower()
+    assert "no agent or subagent is launched" in markdown
+    assert "maximum parallel workers: 2" in markdown
+    assert "codex" not in json.dumps(plan).lower()
+    assert "codex" not in markdown
 
 
 def test_swarm_plan_serializes_overlapping_files_and_rejects_cycles() -> None:
@@ -81,14 +112,14 @@ def test_swarm_plan_serializes_overlapping_files_and_rejects_cycles() -> None:
     assert isinstance(second, dict)
     second["allowed_files"] = ["README.md"]
 
-    plan = build_swarm_plan(overlapping)
+    plan = build_swarm_plan(overlapping, 2)
 
     assert len(plan["waves"]) == 2
     first = items[0]
     assert isinstance(first, dict)
     first["allowed_files"] = ["src"]
     second["allowed_files"] = ["src/quattroagents/core/swarm.py"]
-    assert len(build_swarm_plan(overlapping)["waves"]) == 2
+    assert len(build_swarm_plan(overlapping, 2)["waves"]) == 2
     cyclic = task()
     cyclic_payload = cyclic["payload"]
     assert isinstance(cyclic_payload, dict)
@@ -100,7 +131,7 @@ def test_swarm_plan_serializes_overlapping_files_and_rejects_cycles() -> None:
     first["depends_on"] = ["tests"]
     second["depends_on"] = ["docs"]
     with pytest.raises(ValueError, match="cycle"):
-        build_swarm_plan(cyclic)
+        build_swarm_plan(cyclic, 2)
 
     unknown_requirement = task()
     unknown_payload = unknown_requirement["payload"]
@@ -111,7 +142,34 @@ def test_swarm_plan_serializes_overlapping_files_and_rejects_cycles() -> None:
     assert isinstance(unknown_first, dict)
     unknown_first["requirements"] = ["REQ-404"]
     with pytest.raises(ValueError, match="unknown swarm requirement"):
-        build_swarm_plan(unknown_requirement)
+        build_swarm_plan(unknown_requirement, 2)
+
+
+def test_swarm_plan_uses_injected_scheduling_limit() -> None:
+    configured = task()
+    payload = configured["payload"]
+    assert isinstance(payload, dict)
+    payload["swarm_work_items"] = [
+        {
+            "id": identifier,
+            "objective": f"Do {identifier}",
+            "requirements": ["REQ-1"],
+            "allowed_files": [f"{identifier}.md"],
+            "context_refs": ["src/quattroagents/core/swarm.py"],
+            "depends_on": [],
+        }
+        for identifier in ("one", "two", "three", "four")
+    ]
+
+    plan = build_swarm_plan(configured, 3)
+
+    assert plan["scheduling"]["maximum_parallel_workers"] == 3
+    assert [[worker["id"] for worker in wave["workers"]] for wave in plan["waves"]] == [
+        ["four", "one", "three"],
+        ["two"],
+    ]
+    with pytest.raises(ValueError, match="positive integer"):
+        build_swarm_plan(configured, 0)
 
 
 def test_brownfield_interview_requires_human_intent_before_planning() -> None:
@@ -156,4 +214,4 @@ def test_confirmed_interview_is_required_and_rendered_for_task_contract(
     assert isinstance(payload, dict)
     payload.pop("interview")
     with pytest.raises(ValueError, match="confirmed user interview"):
-        build_swarm_plan(missing)
+        build_swarm_plan(missing, 1)

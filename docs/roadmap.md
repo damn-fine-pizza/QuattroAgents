@@ -25,7 +25,23 @@ Run recording is observational: it neither launches agents nor activates configu
 
 ## 0.4.0
 
-Controlled self-configuration proposals from metrics, always gated by independent review and human approval.
+Controlled Codex coordinator dispatch on top of the 0.3 audit record:
+
+- `qagents swarm plan` remains deterministic and plan-only; it validates and emits
+  packets but never launches agents;
+- Codex native multi-agent tools perform bounded worker lifecycle, while
+  QuattroAgents MCP records task claims, leases, runs, snapshots, artifacts and
+  evidence;
+- deterministic dependency waves, packet-only worker context, result envelopes,
+  lease release, independent review, and sequential fallback make dispatch auditable;
+- `max_threads` is a configured concurrency ceiling only, not an automatic spawning
+  mechanism or a QuattroAgents worker-count guarantee;
+- a real multi-agent demonstration must be recorded with evidence before claiming
+  operational results; the documentation defines the required evidence but does not
+  claim that demonstration has already occurred.
+
+Controlled self-configuration continues to be proposal-only, gated by independent
+review and human approval; it never activates configuration automatically.
 
 ## 0.5.0
 
