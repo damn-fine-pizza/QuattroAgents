@@ -15,3 +15,21 @@ and not a number promised by QuattroAgents. See [Codex multi-agent coordination]
 CI validates both generated adapters: Codex configuration, roles, skills and MCP preservation; and Claude settings, agents, skills and MCP configuration. See [quality gates](gates.md) for the exact installation, verification and delivery checks.
 
 For the QuattroAgents MCP server, see the [installation guide](quattroagents-mcp.md). It covers direct `mcp add` configuration for Codex and Claude with either an isolated GitHub-backed runner or a project virtualenv.
+
+## Orchestration skill
+
+`qagents-orchestrate` is a generated provider skill. It is written to
+`.agents/skills/` only when QuattroAgents explicitly sets up or renders the
+`codex` provider, and to `.claude/skills/` only when it explicitly sets up or
+renders `claude`. Installing or upgrading QuattroAgents does not add it to an
+already configured project; rerun setup or explicitly render the relevant
+provider to opt in.
+
+The skill is conversationally autonomous once the task, project state, and any
+required confirmed interview provide the material answers. It does not pause for
+routine status checks or permission for ordinary in-scope work. Its hard stops
+are a genuine blocker or a human decision that materially changes scope, risk,
+or protected-path approval. It does not introduce a daemon, generic dispatcher,
+automatic configuration, remote service, or LLM runner: provider-native agents
+remain provider-managed, while the QuattroAgents MCP records the control-plane
+state only.
