@@ -1,6 +1,8 @@
 # Swarm planning
 
-Swarm planning is a 0.2 dogfooding aid for bounded local work. It creates deterministic worker packets; it does not execute a fleet.
+Swarm planning is a 0.2 dogfooding aid for bounded local work. `qagents swarm plan`
+is **plan-only**: it creates deterministic worker packets and does not launch,
+dispatch, wait for, or otherwise execute a fleet.
 
 ## Brownfield flow
 
@@ -46,6 +48,12 @@ The planner schedules independent, non-overlapping items in the same wave and po
 
 ## Boundaries
 
-This capability is deliberately below self-hosting: it does not launch subagents, write immutable run snapshots, change routing or gates, activate configuration, or estimate optimization gains. In 0.3, an approved self-hosting workflow can record the corresponding immutable run snapshots as `plan → execute → review → integrate`; recording remains separate from dispatch and does not launch a fleet.
+This capability is deliberately below dispatch: it does not launch subagents, write
+immutable run snapshots, change routing or gates, activate configuration, or estimate
+optimization gains. In the 0.4 Codex workflow, a coordinator may consume these
+validated packets by using native Codex multi-agent tools; QuattroAgents MCP remains
+the task/claim/lease/run/snapshot/artifact/evidence control plane. Recording stays
+separate from lifecycle management and never itself launches a fleet. See
+[Codex multi-agent coordination](codex-multi-agent.md).
 
 The 0.2 interview and bounded-worker controls remain in force. Protected-kernel integration needs explicit human approval. A future, separate milestone may turn repeated deterministic local operations into agent skills, but only benchmark evidence may support a token or execution-time efficiency claim.

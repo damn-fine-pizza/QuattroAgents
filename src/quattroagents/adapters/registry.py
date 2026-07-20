@@ -7,6 +7,23 @@ from pathlib import Path
 from quattroagents.core.configuration import backup, merge_json
 from quattroagents.core.gates import PROTECTED
 
+_CODEX_REASONING_EFFORT = {
+    "small": "low",
+    "medium": "medium",
+    "large": "high",
+    "long_horizon": "xhigh",
+}
+
+_CODEX_COORDINATOR_HANDOFF = (
+    "Codex's coordinator manually dispatches and manages subagents with the native "
+    "`spawn_agent`, `wait_agent`, `send_message`, and `followup_task` tools; there is "
+    "no provider-neutral or QuattroAgents launcher. Give each worker only its packet: "
+    "objective, requirements, allowed files, context and evidence references, claim and "
+    "lease identity, acceptance commands, and result-envelope format. QuattroAgents MCP "
+    "is the local control plane for tasks, claims, leases, runs, snapshots, artifacts, "
+    "and evidence; it does not spawn or wait for Codex agents. "
+)
+
 
 def _write(root: Path, relative: str, text: str) -> None:
     path = root / relative
@@ -29,7 +46,20 @@ def render_codex(root: Path) -> list[str]:
     _write(
         root,
         "AGENTS.md",
-        "# QuattroAgents\n\nState lives in `.quattroagents/`. Route by tier, use task contracts, keep L0/L1 concise, and escalate protected-kernel changes. Validate with `python -m quattroagents validate --format json`.\n",
+        "# QuattroAgents\n\n"
+        "State lives in `.quattroagents/`. Route by tier, use task contracts, keep "
+        "L0/L1 concise, and escalate protected-kernel changes. Validate with "
+        "`python -m quattroagents validate --format json`.\n\n"
+        "Work in waves. Before beginning a task, claim its contract and acquire a "
+        "lease; renew the lease while working and release it when reporting. Dispatch "
+        "native subagents in the same wave only for useful, independent work with "
+        "non-overlapping file or contract scopes. "
+        + _CODEX_COORDINATOR_HANDOFF
+        + "`agents.max_threads` is only a concurrency ceiling for selected eligible "
+        "work: it does not create, select, or promise QuattroAgents workers. Wait for "
+        "every subagent in a wave before starting dependent work, then consolidate their "
+        "evidence. Assign an independent reviewer who did not implement the change before "
+        "completion.\n",
     )
     config_path = root / ".codex/config.toml"
     existing_config = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
@@ -64,19 +94,27 @@ def render_codex(root: Path) -> list[str]:
             "bounded-worker",
             "small",
             "Implements explicitly scoped, low-risk changes.",
-            "Implement only the assigned task, preserve unrelated changes, and report verification.",
+            "Work only from the Codex coordinator's assigned packet. Claim and lease the "
+            "assigned contract, implement only that bounded task, preserve unrelated "
+            "changes, and report the packet's result envelope with changed files and "
+            "verification.",
         ),
         (
             "semantic-reviewer",
             "medium",
             "Reviews behavioral correctness, compatibility, and test coverage.",
-            "Do not modify files; report actionable findings with evidence.",
+            "Independently review a final diff and its acceptance evidence for work you "
+            "did not implement. Check behavioral correctness, compatibility, claims and "
+            "lease discipline, and test coverage. Do not modify files; report actionable "
+            "findings with evidence.",
         ),
         (
             "architecture-adjudicator",
             "large",
             "Reviews architectural trade-offs and protected-boundary impact.",
-            "Do not modify files; identify decisions and approvals required for protected changes.",
+            "Assess architectural trade-offs and protected-boundary impact before "
+            "implementation. Do not modify files; identify recommended decisions and "
+            "approvals required for protected changes.",
         ),
     ):
         _write(
@@ -84,7 +122,7 @@ def render_codex(root: Path) -> list[str]:
             f".codex/agents/{name}.toml",
             f'name = "{name}"\n'
             f'description = "{description}"\n'
-            f'model_reasoning_effort = "{tier}"\n'
+            f'model_reasoning_effort = "{_CODEX_REASONING_EFFORT[tier]}"\n'
             f'developer_instructions = "{instructions}"\n',
         )
     return ["AGENTS.md", ".codex/config.toml", ".agents/skills", ".codex/agents"]

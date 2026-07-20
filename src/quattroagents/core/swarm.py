@@ -15,8 +15,6 @@ def build_interview_brief(analysis: dict[str, object]) -> dict[str, Any]:
         "analysis": {
             "languages": analysis.get("languages", []),
             "ci": analysis.get("ci", []),
-            "codex": analysis.get("codex", False),
-            "claude": analysis.get("claude", False),
         },
         "questions": [
             {
@@ -149,6 +147,7 @@ def _work_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 "allowed_files": _string_list(payload.get("allowed_files", []), "allowed_files"),
                 "context_refs": _string_list(payload.get("context_refs", []), "context_refs"),
                 "depends_on": [],
+                "risk": _risk(payload.get("risk", "low")),
             }
         ]
     if not isinstance(configured, list) or not configured:
@@ -171,11 +170,18 @@ def _work_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 "allowed_files": _string_list(item.get("allowed_files", []), "allowed_files"),
                 "context_refs": _string_list(item.get("context_refs", []), "context_refs"),
                 "depends_on": _string_list(item.get("depends_on", []), "depends_on"),
+                "risk": _risk(item.get("risk", payload.get("risk", "low"))),
             }
         )
     if len({item["id"] for item in items}) != len(items):
         raise ValueError("swarm work item ids must be unique")
     return sorted(items, key=lambda item: item["id"])
+
+
+def _risk(value: object) -> str:
+    if not isinstance(value, str) or not value:
+        raise ValueError("swarm work item risk must be a non-empty string")
+    return value
 
 
 def _confirmed_interview(payload: dict[str, Any]) -> dict[str, Any]:
@@ -226,6 +232,35 @@ def _context_summary(
     }
 
 
+def _scheduling_limit(value: object) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        raise ValueError("maximum parallel workers must be a positive integer")
+    return value
+
+
+def _packet_context(
+    payload: dict[str, Any], item: dict[str, Any], interview: dict[str, Any]
+) -> dict[str, Any]:
+    context = _context_summary(payload, item, interview)
+    forbidden_changes = _string_list(payload.get("forbidden_changes", []), "forbidden_changes")
+    required_evidence = _string_list(payload.get("required_evidence", []), "required_evidence")
+    return {
+        **context,
+        "forbidden_changes": sorted(
+            set(forbidden_changes)
+            | {
+                "Do not launch agents or subagents.",
+                "Do not modify files outside allowed_files.",
+            }
+        ),
+        "required_evidence": required_evidence
+        or [
+            "Acceptance command results.",
+            "Changed-file list limited to allowed_files.",
+        ],
+    }
+
+
 def _files_overlap(first: set[str], second: set[str]) -> bool:
     for left in first:
         for right in second:
@@ -242,7 +277,9 @@ def _files_overlap(first: set[str], second: set[str]) -> bool:
     return False
 
 
-def _waves(items: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
+def _waves(
+    items: list[dict[str, Any]], maximum_parallel_workers: int
+) -> list[list[dict[str, Any]]]:
     by_id = {item["id"]: item for item in items}
     for item in items:
         unknown = set(item["depends_on"]) - by_id.keys()
@@ -263,6 +300,8 @@ def _waves(items: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
         selected: list[dict[str, Any]] = []
         claimed_files: set[str] = set()
         for item in ready:
+            if len(selected) == maximum_parallel_workers:
+                break
             files = set(item["allowed_files"])
             if not _files_overlap(claimed_files, files):
                 selected.append(item)
@@ -272,7 +311,7 @@ def _waves(items: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
     return waves
 
 
-def build_swarm_plan(task: dict[str, Any]) -> dict[str, Any]:
+def build_swarm_plan(task: dict[str, Any], maximum_parallel_workers: object) -> dict[str, Any]:
     """Build a deterministic, plan-only swarm handoff from a stored task contract."""
     payload = task["payload"]
     if not isinstance(payload, dict):
@@ -281,20 +320,33 @@ def build_swarm_plan(task: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(task_id, str) or not task_id:
         raise ValueError("task id must be a non-empty string")
     items = _work_items(payload)
-    waves = _waves(items)
+    maximum_parallel_workers = _scheduling_limit(maximum_parallel_workers)
+    waves = _waves(items, maximum_parallel_workers)
     interview = _confirmed_interview(payload)
     worker_packets = {
         item["id"]: {
             "id": item["id"],
             "role": "bounded_worker",
+            "objective": context["objective"],
+            "requirements": context["requirements"],
+            "allowed_files": context["allowed_files"],
+            "forbidden_changes": context["forbidden_changes"],
+            "context_refs": context["context_refs"],
+            "acceptance_commands": context["acceptance_commands"],
+            "required_evidence": context["required_evidence"],
             "depends_on": item["depends_on"],
-            "context_summary": _context_summary(payload, item, interview),
+            "risk": item["risk"],
+            "context_summary": context,
         }
         for item in items
+        for context in [_packet_context(payload, item, interview)]
     }
     return {
         "schema_version": 1,
         "mode": "plan_only",
+        "scheduling": {
+            "maximum_parallel_workers": maximum_parallel_workers,
+        },
         "task_id": task_id,
         "milestone": task.get("milestone") or payload.get("milestone"),
         "interview": interview,
@@ -334,16 +386,19 @@ def render_swarm_plan_markdown(plan: dict[str, Any]) -> str:
         "",
         "Plan only: no agent or subagent is launched by this command.",
         "",
+        "## Scheduling",
+        "",
+        f"- maximum parallel workers: {plan['scheduling']['maximum_parallel_workers']}",
+        "",
         "## Waves",
         "",
     ]
     for wave in plan["waves"]:
         lines.extend([f"### {wave['id']}", ""])
         for worker in wave["workers"]:
-            context = worker["context_summary"]
-            files = ", ".join(context["allowed_files"]) or "none"
-            refs = ", ".join(context["context_refs"]) or "none"
-            lines.append(f"- `{worker['id']}` ({worker['role']}): {context['objective']}")
+            files = ", ".join(worker["allowed_files"]) or "none"
+            refs = ", ".join(worker["context_refs"]) or "none"
+            lines.append(f"- `{worker['id']}` ({worker['role']}): {worker['objective']}")
             lines.append(f"  - allowed files: {files}")
             lines.append(f"  - context refs: {refs}")
         lines.append("")

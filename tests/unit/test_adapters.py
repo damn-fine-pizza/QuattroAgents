@@ -27,12 +27,33 @@ def test_render_codex_preserves_other_mcp_servers_and_generates_valid_roles(tmp_
     )
     assert parsed["mcp_servers"]["quattroagents"]["command"] == ".venv/bin/qagents"
     assert generated.count("[mcp_servers.quattroagents]") == 1
-    for name in ("bounded-worker", "semantic-reviewer", "architecture-adjudicator"):
+    agents = {
+        "bounded-worker": "low",
+        "semantic-reviewer": "medium",
+        "architecture-adjudicator": "high",
+    }
+    for name, reasoning_effort in agents.items():
         role = tomllib.loads((tmp_path / f".codex/agents/{name}.toml").read_text())
         assert role["name"] == name
         assert role["description"]
         assert role["developer_instructions"]
-        assert role["model_reasoning_effort"]
+        assert role["model_reasoning_effort"] == reasoning_effort
+        assert role["model_reasoning_effort"] not in {"small", "large"}
+
+    agents_instructions = (tmp_path / "AGENTS.md").read_text()
+    assert "useful, independent work" in agents_instructions
+    assert "non-overlapping file or contract scopes" in agents_instructions
+    assert "`spawn_agent`, `wait_agent`, `send_message`, and `followup_task`" in agents_instructions
+    assert "no provider-neutral or QuattroAgents launcher" in agents_instructions
+    assert "it does not spawn or wait for Codex agents" in agents_instructions
+    assert "does not create, select, or promise QuattroAgents workers" in agents_instructions
+    assert "Wait for every subagent in a wave" in agents_instructions
+    assert "claim its contract and acquire a lease" in agents_instructions
+    assert "independent reviewer who did not implement" in agents_instructions
+
+    bounded_worker = tomllib.loads((tmp_path / ".codex/agents/bounded-worker.toml").read_text())
+    assert "Codex coordinator's assigned packet" in bounded_worker["developer_instructions"]
+    assert "result envelope" in bounded_worker["developer_instructions"]
 
 
 def test_render_claude_generates_agents_skills_and_mcp_configuration(tmp_path: Path) -> None:

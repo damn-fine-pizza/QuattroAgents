@@ -13,7 +13,9 @@ python3 -m venv .venv
 
 The `qagents` console command provides `init`, `analyze`, `interview`, `propose`, `apply`, `setup`, `doctor`, `validate`, `diff`, `rollback`, `reconfigure`, `benchmark`, agent/task views, MCP serving and metrics reporting. Add `--help` to every command.
 
-For a brownfield task, run `qagents analyze --format json`, then `qagents interview --interactive --format markdown` to collect confirmed user intent. Copy the resulting interview record into the task contract, then run `qagents swarm plan TASK-ID`. The planner refuses to create worker packets without that confirmed record. During 0.2 this produces a local, deterministic plan and reference-only worker packets; it never launches agents, records immutable run snapshots, activates configuration, or claims optimization results.
+For a brownfield task, run `qagents analyze --format json`, then `qagents interview --interactive --format markdown` to collect confirmed user intent. Copy the resulting interview record into the task contract, then run `qagents swarm plan TASK-ID`. The planner refuses to create worker packets without that confirmed record. `swarm plan` is plan-only: it produces local, deterministic, reference-only worker packets and never launches agents.
+
+In the 0.4 Codex coordinator workflow, Codex's native multi-agent tools launch and wait for bounded workers. QuattroAgents MCP separately records task/claim/lease/run/snapshot/artifact/evidence state. A configured `max_threads` is only the coordinator's concurrency ceiling, never an automatic-spawn instruction or a QuattroAgents worker-count promise. See [Codex multi-agent coordination](docs/codex-multi-agent.md).
 
 ## Optional local tools
 
@@ -43,7 +45,7 @@ Configuration generation backs up replaced files below `.quattroagents/backups/`
 
 - **0.2: dogfooding** — low-risk local tasks only; user-intent interviews and swarm plans are local, deterministic and plan-only.
 - **0.3: self-hosting** — an explicit `plan → execute → review → integrate` record with immutable, verifiable run snapshots. Recording a run never launches an agent or activates configuration; protected changes require human approval before integration.
-- **0.4: controlled self-configuration proposals** — never automatic activation.
+- **0.4: controlled Codex coordination** — native Codex dispatch with QuattroAgents task, lease, evidence and snapshot records; self-configuration remains proposal-only and never activates automatically.
 - **0.5: local skills and assisted optimization** — evaluate repeatable local scripts as agent skills and make recommendations only from reproducible benchmarks.
 
-See [architecture](docs/architecture.md), [benchmarking](docs/benchmarking.md), [providers](docs/providers.md), [MCP](docs/mcp.md), [swarm planning](docs/swarm.md), [self-hosting](docs/self-hosting.md), and [roadmap](docs/roadmap.md).
+See [architecture](docs/architecture.md), [benchmarking](docs/benchmarking.md), [providers](docs/providers.md), [MCP](docs/mcp.md), [swarm planning](docs/swarm.md), [Codex coordination](docs/codex-multi-agent.md), [self-hosting](docs/self-hosting.md), and [roadmap](docs/roadmap.md).

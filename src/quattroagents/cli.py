@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +31,25 @@ from .core.swarm import (
 
 def _root(value: str) -> Path:
     return Path(value).resolve()
+
+
+def _maximum_parallel_workers(root: Path) -> int:
+    """Read the project's explicit scheduling ceiling for a plan-only handoff."""
+    path = root / ".codex" / "config.toml"
+    if not path.is_file():
+        raise ValueError("missing required scheduling configuration: .codex/config.toml")
+    configuration = tomllib.loads(path.read_text(encoding="utf-8"))
+    agents = configuration.get("agents")
+    if not isinstance(agents, dict):
+        raise ValueError("scheduling configuration must define an agents table")
+    maximum_parallel_workers = agents.get("max_threads")
+    if (
+        not isinstance(maximum_parallel_workers, int)
+        or isinstance(maximum_parallel_workers, bool)
+        or maximum_parallel_workers < 1
+    ):
+        raise ValueError("agents.max_threads must be a positive integer")
+    return maximum_parallel_workers
 
 
 def _emit(value: Any, as_json: bool) -> None:
@@ -374,7 +394,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "swarm":
             task = ControlPlane(state_dir(root) / "control-plane.sqlite3").query(args.task_id)
             assert isinstance(task, dict)
-            plan = build_swarm_plan(task)
+            plan = build_swarm_plan(task, _maximum_parallel_workers(root))
             out = render_swarm_plan_markdown(plan) if args.format == "markdown" else plan
         elif args.command == "mcp" and args.mcp_command == "serve":
             return serve(root)

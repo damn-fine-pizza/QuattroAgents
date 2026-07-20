@@ -27,4 +27,17 @@ Snapshots are append-only: they cannot be updated or removed. Keep their context
 
 Recording a run does not execute agents, dispatch a fleet or activate any configuration. The 0.2 contract, confirmed user interview and bounded-worker limits still apply. `integrate` is permitted only after `review`; protected-kernel paths listed in `quality-gates.json` additionally require explicit recorded human approval. This gate does not merge branches, push changes or create tags.
 
+## 0.4 Codex dispatch record
+
+When a Codex coordinator executes a validated plan, Codex native multi-agent tools
+perform spawning and waiting. QuattroAgents MCP records the task claim, per-packet
+lease, run, append-only snapshots, artifacts and evidence; it never launches or
+waits for the agents. Process dependency waves in stable planner order, dispatching
+only non-overlapping leased packets whose dependencies completed. Capture concise
+worker envelopes and evidence before lease release, then obtain an independent review
+before integration. A configured `max_threads` limits concurrent native dispatch; it
+does not automatically create agents and does not imply any QuattroAgents worker
+count. The detailed procedure and required demonstration are in
+[Codex multi-agent coordination](codex-multi-agent.md).
+
 The future local-scripts/skills opportunity is a separate optimization milestone. Candidate scripts must be deterministic local operations, and their token or execution-time benefit must be demonstrated with reproducible benchmarks before it is claimed.

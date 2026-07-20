@@ -3,11 +3,17 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
+from quattroagents.cli import _maximum_parallel_workers
 from quattroagents.control_plane.tasks import ControlPlane
 
 
 def test_swarm_plan_and_interview_cli(tmp_path: Path) -> None:
     root = Path(__file__).parents[2]
+    config_dir = tmp_path / ".codex"
+    config_dir.mkdir()
+    config_path = config_dir / "config.toml"
     tasks = ControlPlane(tmp_path / ".quattroagents" / "control-plane.sqlite3")
     tasks.create(
         "TASK-001",
@@ -38,6 +44,9 @@ def test_swarm_plan_and_interview_cli(tmp_path: Path) -> None:
             ],
         },
     )
+    with pytest.raises(ValueError, match="missing required scheduling configuration"):
+        _maximum_parallel_workers(tmp_path)
+    config_path.write_text("agents.max_threads = 1\n", encoding="utf-8")
 
     plan = subprocess.run(
         [
@@ -106,7 +115,15 @@ def test_swarm_plan_and_interview_cli(tmp_path: Path) -> None:
         text=True,
     )
 
-    assert json.loads(plan.stdout)["waves"][0]["workers"][0]["id"] == "docs"
+    rendered_plan = json.loads(plan.stdout)
+    assert rendered_plan["waves"][0]["workers"][0]["id"] == "docs"
+    assert rendered_plan["scheduling"] == {
+        "maximum_parallel_workers": 1,
+    }
+    assert "codex" not in json.dumps(rendered_plan).lower()
+    config_path.write_text("agents.max_threads = 0\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="agents.max_threads must be a positive integer"):
+        _maximum_parallel_workers(tmp_path)
     assert "# User-intent interview" in interview.stdout
     assert json.loads(interactive.stdout)["status"] == "confirmed"
     assert legacy.returncode == 2
