@@ -195,3 +195,28 @@ def test_mcp_server_records_and_verifies_run_snapshots(tmp_path: Path) -> None:
     responses = [json.loads(line) for line in result.stdout.splitlines()]
     verified = json.loads(responses[3]["result"]["content"][0]["text"])
     assert verified == {"valid": True, "run_id": "RUN-001", "snapshots": 1}
+
+
+def test_mcp_server_preserves_request_id_on_tool_error(tmp_path: Path) -> None:
+    root = Path(__file__).parents[2]
+    request = {
+        "jsonrpc": "2.0",
+        "id": 42,
+        "method": "tools/call",
+        "params": {"name": "task_create", "arguments": {}},
+    }
+
+    result = subprocess.run(
+        [sys.executable, "-m", "quattroagents", "mcp", "serve", "--project", str(tmp_path)],
+        cwd=root,
+        input=f"{json.dumps(request)}\n",
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    response = json.loads(result.stdout)
+    assert response["jsonrpc"] == "2.0"
+    assert response["id"] == 42
+    assert response["error"]["code"] == -32000
+    assert "task_id" in response["error"]["message"]
