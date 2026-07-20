@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import runtime_version
+from .decisions import DecisionStore
 from .leases import Leases
 from .runs import RunStore
 from .tasks import ControlPlane
@@ -44,6 +45,7 @@ def _coerce_json(value: Any) -> Any:
 def serve(root: Path) -> int:
     database = root / ".quattroagents/control-plane.sqlite3"
     tasks, leases, runs = ControlPlane(database), Leases(str(database)), RunStore(database)
+    decisions = DecisionStore(database)
     for raw in sys.stdin:
         request: dict[str, Any] | None = None
         try:
@@ -118,6 +120,14 @@ def serve(root: Path) -> int:
                     }
                 elif name == "lease_release":
                     out = {"released": leases.release(args["path"], args["agent"])}
+                elif name == "decision_propose":
+                    out = decisions.propose(
+                        args["decision_id"],
+                        args["kind"],
+                        args["summary"],
+                        _coerce_json(args.get("payload", {})),
+                        args.get("requested_by"),
+                    )
                 else:
                     out = {"accepted": True}
                 result = {"content": [{"type": "text", "text": json.dumps(out)}]}

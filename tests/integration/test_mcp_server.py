@@ -232,6 +232,40 @@ def test_mcp_server_records_and_verifies_run_snapshots(tmp_path: Path) -> None:
     assert verified == {"valid": True, "run_id": "RUN-001", "snapshots": 1}
 
 
+def test_mcp_server_persists_a_proposed_decision(tmp_path: Path) -> None:
+    root = Path(__file__).parents[2]
+    request = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+            "name": "decision_propose",
+            "arguments": {
+                "decision_id": "DEC-001",
+                "kind": "tooling",
+                "summary": "Adopt codebase-memory-mcp",
+                "payload": {"tool": "codebase-memory-mcp"},
+                "requested_by": "agent-a",
+            },
+        },
+    }
+
+    result = subprocess.run(
+        [sys.executable, "-m", "quattroagents", "mcp", "serve", "--project", str(tmp_path)],
+        cwd=root,
+        input=f"{json.dumps(request)}\n",
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    response = json.loads(result.stdout)
+    proposed = json.loads(response["result"]["content"][0]["text"])
+    assert proposed["id"] == "DEC-001"
+    assert proposed["status"] == "proposed"
+    assert proposed["payload"] == {"tool": "codebase-memory-mcp"}
+
+
 def test_mcp_server_preserves_request_id_on_tool_error(tmp_path: Path) -> None:
     root = Path(__file__).parents[2]
     request = {

@@ -15,10 +15,19 @@ from .adapters import render
 from .control_plane.mcp_server import RESOURCES, TOOLS, serve
 from .control_plane.runs import RunStore
 from .control_plane.tasks import ControlPlane
+from .core.agent_synthesis import synthesize
 from .core.configuration import STATE_FILES, initialise, read_json, state_dir, write_json
 from .core.gates import PROTECTED
 from .core.project_detection import detect
 from .core.routing import fleet, routing
+from .core.setup_history import SetupHistoryStore
+from .core.setup_interview import (
+    build_setup_interview_brief,
+    carry_forward_setup_interview,
+    conduct_setup_interview,
+    confirm_setup_interview,
+    default_setup_interview,
+)
 from .core.swarm import (
     build_interview_brief,
     build_swarm_plan,
@@ -217,7 +226,49 @@ def enable_project_hooks(root: Path) -> bool:
     return True
 
 
-def setup(root: Path, providers: list[str], profile: str, yes: bool) -> dict[str, Any]:
+def configure_generated_agents(
+    root: Path,
+    providers: list[str],
+    profile: str,
+    *,
+    interactive: bool = False,
+    answers_file: str | None = None,
+) -> list[str]:
+    """Analyze the project, interview the user, and render tailored agents/skills.
+
+    This is the venv-independent core of `setup()`, split out so it can run (and be
+    tested) without bootstrapping a virtualenv or reinstalling the package.
+    """
+    analysis = detect(root)
+    history_store = SetupHistoryStore()
+    history = history_store.recent(root)
+    brief = build_setup_interview_brief(analysis, history)
+    if answers_file:
+        raw_answers = json.loads(Path(answers_file).read_text(encoding="utf-8"))
+        interview = confirm_setup_interview(brief, raw_answers)
+    elif interactive:
+        interview = conduct_setup_interview(brief)
+    elif history:
+        interview = carry_forward_setup_interview(history[0]["interview"])
+    else:
+        interview = default_setup_interview(brief)
+    manifest = synthesize(analysis, interview, history)
+
+    initialise_project(root, providers, profile)
+    files = render(root, providers, manifest)
+    history_store.append(root, analysis, interview, manifest)
+    return files
+
+
+def setup(
+    root: Path,
+    providers: list[str],
+    profile: str,
+    yes: bool,
+    *,
+    interactive: bool = False,
+    answers_file: str | None = None,
+) -> dict[str, Any]:
     venv = root / ".venv"
     python = venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     if not python.exists():
@@ -235,8 +286,10 @@ def setup(root: Path, providers: list[str], profile: str, yes: bool) -> dict[str
     source_root = Path(__file__).resolve().parents[2]
     subprocess.run([str(python), "-m", "pip", "install", "--upgrade", "pip"], check=True)
     subprocess.run([str(python), "-m", "pip", "install", "-e", f"{source_root}[dev]"], check=True)
-    initialise_project(root, providers, profile)
-    files = render(root, providers)
+
+    files = configure_generated_agents(
+        root, providers, profile, interactive=interactive, answers_file=answers_file
+    )
     write_hooks(root)
     hooks_enabled = enable_project_hooks(root)
     return {
@@ -284,6 +337,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--profile", default="economy")
     p.add_argument("--install-mcp", default="recommended")
     p.add_argument("--yes", action="store_true")
+    p.add_argument("--interactive", action="store_true")
+    p.add_argument("--answers-file")
     p.add_argument("--format", choices=("json",), default="json")
     agents = sub.add_parser("agents")
     agents.add_subparsers(dest="agents_command", required=True).add_parser("list").add_argument(
@@ -378,10 +433,19 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "validate":
             out = validate(root)
         elif args.command == "setup":
-            out = setup(root, args.providers.split(","), args.profile, args.yes)
+            out = setup(
+                root,
+                args.providers.split(","),
+                args.profile,
+                args.yes,
+                interactive=args.interactive,
+                answers_file=args.answers_file,
+            )
         elif args.command == "apply":
             providers = args.providers.split(",")
-            out = {"generated": render(root, providers), "providers": providers}
+            latest = SetupHistoryStore().latest(root)
+            manifest = latest["manifest"] if latest is not None else None
+            out = {"generated": render(root, providers, manifest), "providers": providers}
         elif args.command == "agents":
             out = read_json(state_dir(root) / "fleet.json", {}).get("agents", [])
         elif args.command == "tasks":

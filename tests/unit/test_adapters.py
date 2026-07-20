@@ -3,6 +3,7 @@ import tomllib
 from pathlib import Path
 
 from quattroagents.adapters.registry import render_claude, render_codex
+from quattroagents.core.agent_synthesis import DEFAULT_MANIFEST
 
 
 def test_render_codex_preserves_other_mcp_servers_and_generates_valid_roles(tmp_path: Path) -> None:
@@ -84,3 +85,69 @@ def test_render_claude_generates_agents_skills_and_mcp_configuration(tmp_path: P
     assert "continue the QuattroAgents lifecycle autonomously" in orchestration_skill
     assert "Use provider-native subagents only" in orchestration_skill
     assert "QuattroAgents MCP is the control plane only" in orchestration_skill
+
+
+def _custom_manifest() -> dict:
+    return {
+        "schema_version": 1,
+        "roles": [
+            {
+                "name": "bounded-worker",
+                "tier": "small",
+                "source": "adhoc",
+                "description": "Custom description for this project.",
+                "instructions": "Custom instructions mentioning rtk and codebase-memory-mcp.",
+                "claude_model": "sonnet",
+                "claude_max_turns": 12,
+            }
+        ],
+        "skills": [
+            {
+                "name": "qagents-custom",
+                "source": "adhoc",
+                "body": "---\nname: qagents-custom\ndescription: custom\n---\n\nCustom body.\n",
+            }
+        ],
+        "rationale": {},
+    }
+
+
+def test_render_codex_is_manifest_driven(tmp_path: Path) -> None:
+    manifest = _custom_manifest()
+
+    render_codex(tmp_path, manifest)
+
+    role = tomllib.loads((tmp_path / ".codex/agents/bounded-worker.toml").read_text())
+    assert role["description"] == "Custom description for this project."
+    assert "rtk and codebase-memory-mcp" in role["developer_instructions"]
+    assert (tmp_path / ".agents/skills/qagents-custom/SKILL.md").read_text() == (
+        "---\nname: qagents-custom\ndescription: custom\n---\n\nCustom body.\n"
+    )
+    assert not (tmp_path / ".codex/agents/semantic-reviewer.toml").exists()
+
+
+def test_render_claude_is_manifest_driven(tmp_path: Path) -> None:
+    manifest = _custom_manifest()
+
+    render_claude(tmp_path, manifest)
+
+    role_file = (tmp_path / ".claude/agents/bounded-worker.md").read_text()
+    assert "description: Custom description for this project." in role_file
+    assert "Custom instructions mentioning rtk and codebase-memory-mcp." in role_file
+    assert (tmp_path / ".claude/skills/qagents-custom/SKILL.md").read_text() == (
+        "---\nname: qagents-custom\ndescription: custom\n---\n\nCustom body.\n"
+    )
+
+
+def test_render_codex_and_claude_without_manifest_falls_back_to_default_manifest(
+    tmp_path: Path,
+) -> None:
+    render_codex(tmp_path)
+    render_claude(tmp_path)
+
+    for role in DEFAULT_MANIFEST["roles"]:
+        assert (tmp_path / f".codex/agents/{role['name']}.toml").exists()
+        assert (tmp_path / f".claude/agents/{role['name']}.md").exists()
+    for skill in DEFAULT_MANIFEST["skills"]:
+        assert (tmp_path / f".agents/skills/{skill['name']}/SKILL.md").exists()
+        assert (tmp_path / f".claude/skills/{skill['name']}/SKILL.md").exists()

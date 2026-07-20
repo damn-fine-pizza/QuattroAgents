@@ -47,3 +47,7 @@ review and human approval; it never activates configuration automatically.
 ## 0.5.0
 
 Local skills and assisted optimization: identify repeated, deterministic operations that can be implemented as local scripts and exposed to agents as skills. Any claim about token reduction, speed, cost, or quality requires a reproducible benchmark; unverified theoretical savings are not reported. This remains separate from 0.3 self-hosting and does not permit automatic configuration activation.
+
+## 0.6.1
+
+Data-driven `setup`: project analysis and a project-scoped interview (distinct from the 0.2.2 task-level user-intent interview) jointly produce the generated agents and skills, replacing the previous fixed template. Answers and the resulting manifest are recorded under `.quattroagents/decisions/setup/` so a later `setup` run can build on that history instead of starting fresh. The `decision_propose` MCP tool gains real persistence via the same lifecycle-tracked decision store. `setup --yes` with no prior history and no `--interactive`/`--answers-file` remains non-interactive and produces the same default agents and skills as before.
