@@ -37,6 +37,14 @@ QuattroAgents exposes its local task and metrics control plane as a stdio MCP se
 
 Use `.venv/bin/python -m quattroagents metrics report --format markdown` for a deterministic, human-readable benchmark summary. It reports recorded benchmark evidence only: QuattroAgents does not infer savings, speedups, or outcomes from plans or snapshots. The default JSON format remains available for machine consumers.
 
+## Local project-health observations
+
+Run `scripts/project-health.sh [PROJECT_ROOT]` to emit local `doctor` and
+`validate` JSON. Pair equivalent `baseline` and `assisted` repetitions at the
+same fixed commit and environment; retain raw output and failures for every
+run. The observations are not token, saving, speed, or quality claims. See the
+[paired protocol and limitations](docs/benchmarking.md#project-health-paired-observations).
+
 ## Canonical state and providers
 
 `.quattroagents/` is authoritative; Codex (`AGENTS.md`, `.codex/`, `.agents/`) and Claude Code (`CLAUDE.md`, `.claude/`, `.mcp.json`) are generated adapters. The core uses abstract `small`, `medium`, `large`, and `long_horizon` tiers rather than commercial model names. `long_horizon` is manual-only.
@@ -56,6 +64,14 @@ The local `quattroagents` MCP is SQLite/WAL-backed and exposes a small task/leas
 ## Safety
 
 Configuration generation backs up replaced files below `.quattroagents/backups/`; runtime data and credentials are ignored. Protected-kernel paths require medium-or-higher implementation, independent review and human approval. Never force-push.
+
+## CI and releases
+
+Quality gates run after each merge to `main` and can also be triggered manually.
+Releases are manual, tag-based workflow dispatches: provide an existing version tag
+that matches the package version (for example, `v0.5.0`) and a numeric build
+identifier. The release workflow verifies the tag is reachable from `main`, runs
+the quality gates, builds distributions, and publishes the release assets.
 
 ## Self-hosting roadmap
 

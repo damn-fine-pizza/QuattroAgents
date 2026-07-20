@@ -21,6 +21,19 @@ The CI workflow is a versioned operational policy, not a replacement for `.quatt
 
 `qagents setup --yes` writes the same project-local `.githooks/pre-push` suite and activates it through `git config core.hooksPath .githooks` when the target is a Git repository. It runs the test suite, Ruff check and format check, mypy, QuattroAgents validation, and build before a push. Git hooks are a local safety net and can be bypassed, so maintainers should also protect `main` against direct pushes. Do not configure this workflow's status checks as required for PR merges: it does not run on `pull_request` events.
 
+The lighter `.githooks/pre-commit` gate runs project validation, Ruff linting, and
+Ruff's format check. It catches an unformatted change before a commit is created;
+the pre-push gate remains the complete local suite.
+
+## Manual releases
+
+`.github/workflows/release.yml` is deliberately manual. A maintainer first merges
+the version change to `main`, creates and pushes the matching existing `vX.Y.Z`
+tag, then dispatches the workflow with that tag and a numeric build identifier.
+The workflow checks out that exact tag, requires its package version to match,
+reruns the complete quality suite, builds the sdist and wheel, and creates the
+GitHub release named `vX.Y.Z build N`. It never creates, moves, or deletes tags.
+
 ## Install local gate tools
 
 Install all Python gate tools in the project virtual environment; do not rely on globally installed Python packages.
@@ -51,4 +64,6 @@ brew install actionlint
 go install github.com/rhysd/actionlint/cmd/actionlint@latest
 ```
 
-Then run `actionlint .github/workflows/ci.yml`. The [actionlint project documentation](https://github.com/rhysd/actionlint#readme) also provides signed release binaries and container-based alternatives.
+Then run `actionlint .github/workflows/ci.yml .github/workflows/release.yml`.
+The [actionlint project documentation](https://github.com/rhysd/actionlint#readme)
+also provides signed release binaries and container-based alternatives.

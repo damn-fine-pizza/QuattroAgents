@@ -37,8 +37,9 @@ Controlled Codex coordinator dispatch on top of the 0.3 audit record:
 - `max_threads` is a configured concurrency ceiling only, not an automatic spawning
   mechanism or a QuattroAgents worker-count guarantee;
 - a real multi-agent demonstration must be recorded with evidence before claiming
-  operational results; the documentation defines the required evidence but does not
-  claim that demonstration has already occurred.
+  operational results; `CODEX-DISPATCH-DEMO` is the recorded lifecycle example,
+  documented in `docs/codex-multi-agent.md`, and does not imply a speed, token,
+  cost, or quality result.
 
 Controlled self-configuration continues to be proposal-only, gated by independent
 review and human approval; it never activates configuration automatically.
