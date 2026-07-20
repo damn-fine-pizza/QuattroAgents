@@ -27,6 +27,36 @@ def _emit(value: Any, as_json: bool) -> None:
     print(json.dumps(value, indent=2, sort_keys=True) if as_json else value)
 
 
+def metrics_snapshot() -> dict[str, Any]:
+    """Return the stable metrics payload available during 0.2 dogfooding."""
+    return {"samples": 0, "primary_metric": "accepted_tasks_per_quota_unit"}
+
+
+def render_metrics_markdown(metrics: dict[str, Any]) -> str:
+    """Render a deterministic report without inferring metrics from absent samples."""
+    samples = metrics["samples"]
+    rows = (
+        ("Samples", samples),
+        ("Accepted tasks", 0),
+        ("Retries", 0),
+        ("Escalations", 0),
+        ("Duration", "0 s"),
+        ("Parallelism", 0),
+        ("Repeated reads", 0),
+        (metrics["primary_metric"], 0),
+    )
+    table = "\n".join(f"| {label} | {value} |" for label, value in rows)
+    return (
+        "# QuattroAgents metrics\n\n"
+        "## Summary\n\n"
+        f"No execution samples recorded yet ({samples}). All numeric values are zero; "
+        "no savings or outcomes are inferred.\n\n"
+        "| Metric | Value |\n"
+        "| --- | ---: |\n"
+        f"{table}\n"
+    )
+
+
 def initialise_project(root: Path, providers: list[str], profile: str) -> dict[str, Any]:
     initialise(root, profile, providers)
     state = state_dir(root)
@@ -79,8 +109,40 @@ def doctor(root: Path) -> dict[str, Any]:
         or (root / ".venv/Scripts/python.exe").exists(),
         "codex": shutil.which("codex") is not None,
         "claude": shutil.which("claude") is not None,
+        "rtk": shutil.which("rtk") is not None,
+        "codebase_memory_mcp": shutil.which("codebase-memory-mcp") is not None,
         "state": state_dir(root).exists(),
     }
+
+
+def write_hooks(root: Path) -> None:
+    hooks = root / ".githooks"
+    hooks.mkdir(exist_ok=True)
+    for name, body in {
+        "pre-commit": (
+            "#!/bin/sh\nset -eu\n"
+            ".venv/bin/python -m quattroagents validate --project . --json\n"
+            ".venv/bin/python -m ruff check .\n"
+        ),
+        "commit-msg": (
+            "#!/bin/sh\nset -eu\n"
+            'if [ "${QAGENTS_DISABLE_COMMIT_MSG:-0}" = "1" ]; then exit 0; fi\n'
+            "if ! grep -Eq '^\\[TASK-[0-9]+\\] ' \"$1\"; then\n"
+            '  echo "Commit message must start with [TASK-042] (or set '
+            'QAGENTS_DISABLE_COMMIT_MSG=1)." >&2\n'
+            "  exit 1\nfi\n"
+        ),
+        "pre-push": (
+            "#!/bin/sh\nset -eu\n"
+            ".venv/bin/python -m quattroagents validate --project . --json\n"
+            ".venv/bin/python -m pytest\n"
+            ".venv/bin/python -m ruff check .\n"
+            ".venv/bin/python -m mypy src\n"
+        ),
+    }.items():
+        path = hooks / name
+        path.write_text(body)
+        path.chmod(0o755)
 
 
 def setup(root: Path, providers: list[str], profile: str, yes: bool) -> dict[str, Any]:
@@ -103,16 +165,7 @@ def setup(root: Path, providers: list[str], profile: str, yes: bool) -> dict[str
     subprocess.run([str(python), "-m", "pip", "install", "-e", f"{source_root}[dev]"], check=True)
     initialise_project(root, providers, profile)
     files = render(root, providers)
-    hooks = root / ".githooks"
-    hooks.mkdir(exist_ok=True)
-    for name, body in {
-        "pre-commit": "#!/bin/sh\npython -m quattroagents validate --json\n",
-        "commit-msg": "#!/bin/sh\nexit 0\n",
-        "pre-push": "#!/bin/sh\npython -m quattroagents validate --json\n",
-    }.items():
-        path = hooks / name
-        path.write_text(body)
-        path.chmod(0o755)
+    write_hooks(root)
     return {"configured": files, "doctor": doctor(root), "validation": validate(root)}
 
 
@@ -211,10 +264,11 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "mcp":
             out = {"tools": TOOLS, "resources": RESOURCES, "valid": validate(root)["valid"]}
         elif args.command == "metrics":
+            metrics_payload = metrics_snapshot()
             out = (
-                "# QuattroAgents metrics\n\nNo execution samples recorded yet.\n"
-                if args.metrics_command == "report" and args.format == "markdown"
-                else {"samples": 0, "primary_metric": "accepted_tasks_per_quota_unit"}
+                render_metrics_markdown(metrics_payload)
+                if args.format == "markdown"
+                else metrics_payload
             )
         elif args.command == "self-hosting":
             checks = {

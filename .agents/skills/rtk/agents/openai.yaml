@@ -1,0 +1,4 @@
+interface:
+  display_name: "RTK"
+  short_description: "Use RTK for compact command output"
+  default_prompt: "Use $rtk to run compact, safe repository diagnostics."
