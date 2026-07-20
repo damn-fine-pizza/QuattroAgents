@@ -3,7 +3,7 @@
 import subprocess
 from pathlib import Path
 
-__version__ = "0.2.2"
+__version__ = "0.5.0"
 
 
 def runtime_identity() -> tuple[str | None, bool]:
