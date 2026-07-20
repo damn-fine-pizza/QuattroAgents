@@ -44,7 +44,7 @@ jobs:
       - run: .venv/bin/python -m ruff check .
       - run: .venv/bin/python -m ruff format --check .
       - run: .venv/bin/python -m mypy src
-      - run: .venv/bin/python -m quattroagents validate --format json
+      - run: .venv/bin/python -m quattroagents validate
       - run: .venv/bin/python -m build
       - uses: actions/upload-artifact@v4
         with:
@@ -64,4 +64,4 @@ jobs:
       - run: python -m venv .venv
       - run: .venv/bin/python -m pip install --upgrade pip
       - run: .venv/bin/python -m pip install ".[dev]"
-      - run: .venv/bin/python -m pytest tests/unit/test_adapters.py tests/integration/test_setup.py
+      - run: .venv/bin/python -m pytest tests/integration/test_adapters_claude.py tests/integration/test_adapters_codex.py

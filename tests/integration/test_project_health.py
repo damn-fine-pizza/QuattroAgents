@@ -39,8 +39,8 @@ def test_project_health_runs_doctor_then_validate_for_the_requested_root(tmp_pat
 
     assert result.returncode == 0
     assert log.read_text().splitlines() == [
-        f"-m quattroagents doctor --project {tmp_path} --format json",
-        f"-m quattroagents validate --project {tmp_path} --format json",
+        f"-m quattroagents doctor --project {tmp_path}",
+        f"-m quattroagents validate --project {tmp_path}",
     ]
 
 
@@ -51,9 +51,7 @@ def test_project_health_stops_when_doctor_fails(tmp_path: Path) -> None:
     result = _run(tmp_path, log, DOCTOR_EXIT="23")
 
     assert result.returncode == 23
-    assert log.read_text().splitlines() == [
-        f"-m quattroagents doctor --project {tmp_path} --format json"
-    ]
+    assert log.read_text().splitlines() == [f"-m quattroagents doctor --project {tmp_path}"]
 
 
 def test_project_health_returns_validate_failure(tmp_path: Path) -> None:
@@ -64,6 +62,6 @@ def test_project_health_returns_validate_failure(tmp_path: Path) -> None:
 
     assert result.returncode == 24
     assert log.read_text().splitlines() == [
-        f"-m quattroagents doctor --project {tmp_path} --format json",
-        f"-m quattroagents validate --project {tmp_path} --format json",
+        f"-m quattroagents doctor --project {tmp_path}",
+        f"-m quattroagents validate --project {tmp_path}",
     ]

@@ -1,9 +1,8 @@
 #!/bin/sh
 set -eu
-.venv/bin/python -m quattroagents validate --project . --format json
+.venv/bin/python -m quattroagents validate --project .
 .venv/bin/python -m pytest
 .venv/bin/python -m ruff check .
 .venv/bin/python -m ruff format --check .
 .venv/bin/python -m mypy src
 .venv/bin/python -m build
-.venv/bin/python -m quattroagents metrics report --format markdown

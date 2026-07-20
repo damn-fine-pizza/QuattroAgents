@@ -9,9 +9,10 @@ if [ ! -x .venv/bin/python ]; then "$PYTHON" -m venv .venv; fi
 VENV_PYTHON="$PROJECT_ROOT/.venv/bin/python"
 "$VENV_PYTHON" -m pip install --upgrade pip
 "$VENV_PYTHON" -m pip install -e ".[dev]"
-"$VENV_PYTHON" -m quattroagents setup --project "$PROJECT_ROOT" --providers codex,claude --profile economy --install-mcp recommended --yes
+if [ -d .git ] && [ -d .githooks ]; then git config core.hooksPath .githooks; fi
+"$VENV_PYTHON" -m quattroagents setup --project "$PROJECT_ROOT" --providers codex,claude
 "$PROJECT_ROOT/scripts/detect-rtk.sh"
 "$PROJECT_ROOT/scripts/detect-codebase-memory-mcp.sh"
 echo "Use scripts/rtk.sh to run RTK with the project's .venv developer tools."
-"$VENV_PYTHON" -m quattroagents doctor --project "$PROJECT_ROOT" --format json
-"$VENV_PYTHON" -m quattroagents validate --project "$PROJECT_ROOT" --format json
+"$VENV_PYTHON" -m quattroagents doctor --project "$PROJECT_ROOT"
+"$VENV_PYTHON" -m quattroagents validate --project "$PROJECT_ROOT"

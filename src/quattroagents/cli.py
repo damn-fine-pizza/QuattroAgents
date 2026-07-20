@@ -1,168 +1,32 @@
+"""CLI surface for the Project Agent Factory.
+
+Thin wrapper around `mcp_server`'s tool dispatch table: every subcommand
+builds a `project_root` + tool-specific args dict and calls the same
+`tool_*` function the MCP server calls for `tools/call`, so the CLI and
+the MCP surface stay in lockstep by construction instead of duplicating
+logic.
+"""
+
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import shutil
-import subprocess
 import sys
-import tomllib
 from pathlib import Path
 from typing import Any
 
 from . import runtime_identity, runtime_version
-from .adapters import render
-from .control_plane.mcp_server import RESOURCES, TOOLS, serve
-from .control_plane.runs import RunStore
-from .control_plane.tasks import ControlPlane
-from .core.agent_synthesis import synthesize
-from .core.configuration import STATE_FILES, initialise, read_json, state_dir, write_json
-from .core.gates import PROTECTED
-from .core.project_detection import detect
-from .core.routing import fleet, routing
-from .core.setup_history import SetupHistoryStore
-from .core.setup_interview import (
-    build_setup_interview_brief,
-    carry_forward_setup_interview,
-    conduct_setup_interview,
-    confirm_setup_interview,
-    default_setup_interview,
-)
-from .core.swarm import (
-    build_interview_brief,
-    build_swarm_plan,
-    conduct_interview,
-    render_confirmed_interview_markdown,
-    render_interview_brief_markdown,
-    render_swarm_plan_markdown,
-)
+from .mcp_server import DISPATCH, TOOLS, serve
+from .persistence import store_dir
 
 
 def _root(value: str) -> Path:
     return Path(value).resolve()
 
 
-def _maximum_parallel_workers(root: Path) -> int:
-    """Read the project's explicit scheduling ceiling for a plan-only handoff."""
-    path = root / ".codex" / "config.toml"
-    if not path.is_file():
-        raise ValueError("missing required scheduling configuration: .codex/config.toml")
-    configuration = tomllib.loads(path.read_text(encoding="utf-8"))
-    agents = configuration.get("agents")
-    if not isinstance(agents, dict):
-        raise ValueError("scheduling configuration must define an agents table")
-    maximum_parallel_workers = agents.get("max_threads")
-    if (
-        not isinstance(maximum_parallel_workers, int)
-        or isinstance(maximum_parallel_workers, bool)
-        or maximum_parallel_workers < 1
-    ):
-        raise ValueError("agents.max_threads must be a positive integer")
-    return maximum_parallel_workers
-
-
-def _emit(value: Any, as_json: bool) -> None:
-    print(json.dumps(value, indent=2, sort_keys=True) if as_json else value)
-
-
-def metrics_snapshot() -> dict[str, Any]:
-    """Return the stable metrics payload available during 0.2 dogfooding."""
-    return {"samples": 0, "primary_metric": "accepted_tasks_per_quota_unit"}
-
-
-def render_analysis_markdown(analysis: dict[str, object]) -> str:
-    """Render deterministic repository facts for a brownfield interview."""
-    languages_value = analysis.get("languages", [])
-    ci_value = analysis.get("ci", [])
-    languages = (
-        ", ".join(languages_value)
-        if isinstance(languages_value, list)
-        and all(isinstance(item, str) for item in languages_value)
-        else "not detected"
-    ) or "not detected"
-    ci = (
-        ", ".join(ci_value)
-        if isinstance(ci_value, list) and all(isinstance(item, str) for item in ci_value)
-        else "not detected"
-    ) or "not detected"
-    return "\n".join(
-        [
-            "# Repository analysis",
-            "",
-            f"- Languages: {languages}",
-            f"- CI: {ci}",
-            f"- Codex adapter: {analysis['codex']}",
-            f"- Claude adapter: {analysis['claude']}",
-            "",
-        ]
-    )
-
-
-def render_metrics_markdown(metrics: dict[str, Any]) -> str:
-    """Render a deterministic report without inferring metrics from absent samples."""
-    samples = metrics["samples"]
-    rows = (
-        ("Samples", samples),
-        ("Accepted tasks", 0),
-        ("Retries", 0),
-        ("Escalations", 0),
-        ("Duration", "0 s"),
-        ("Parallelism", 0),
-        ("Repeated reads", 0),
-        (metrics["primary_metric"], 0),
-    )
-    table = "\n".join(f"| {label} | {value} |" for label, value in rows)
-    return (
-        "# QuattroAgents metrics\n\n"
-        "## Summary\n\n"
-        f"No execution samples recorded yet ({samples}). All numeric values are zero; "
-        "no savings or outcomes are inferred.\n\n"
-        "| Metric | Value |\n"
-        "| --- | ---: |\n"
-        f"{table}\n"
-    )
-
-
-def initialise_project(root: Path, providers: list[str], profile: str) -> dict[str, Any]:
-    initialise(root, profile, providers)
-    state = state_dir(root)
-    write_json(
-        state / "capability-map.json",
-        {
-            "schema_version": 1,
-            "capabilities": {
-                "repository_discovery": {"required": True, "risk": "low"},
-                "bounded_implementation": {"required": True, "risk": "medium"},
-                "realtime_review": {"required": False, "risk": "high"},
-            },
-        },
-    )
-    write_json(state / "fleet.json", {"schema_version": 1, "agents": fleet(profile)})
-    write_json(state / "model-routing.json", routing(profile))
-    write_json(
-        state / "quality-gates.json",
-        {
-            "schema_version": 1,
-            "protected_paths": PROTECTED,
-            "retry_limit": 1,
-            "require_human_approval": True,
-        },
-    )
-    write_json(
-        state / "context-manifest.json",
-        {"schema_version": 1, "entries": [{"path": "README.md", "purpose": "project overview"}]},
-    )
-    return {"state": str(state), "providers": providers, "profile": profile}
-
-
-def validate(root: Path) -> dict[str, Any]:
-    missing = [name for name in STATE_FILES if not (state_dir(root) / name).exists()]
-    generated = (
-        [str(p.relative_to(root)) for p in (root / ".quattroagents").rglob("*.json")]
-        if state_dir(root).exists()
-        else []
-    )
-    return {"valid": not missing, "missing": missing, "files": generated}
+def _emit(value: Any) -> None:
+    print(json.dumps(value, indent=2, sort_keys=True))
 
 
 def doctor(root: Path) -> dict[str, Any]:
@@ -175,345 +39,202 @@ def doctor(root: Path) -> dict[str, Any]:
         "dirty": dirty,
         "python": sys.version.split()[0],
         "root": str(root),
-        "venv": str(root / ".venv"),
-        "venv_python": (root / ".venv/bin/python").exists()
-        or (root / ".venv/Scripts/python.exe").exists(),
         "codex": shutil.which("codex") is not None,
         "claude": shutil.which("claude") is not None,
         "rtk": shutil.which("rtk") is not None,
         "codebase_memory_mcp": shutil.which("codebase-memory-mcp") is not None,
-        "state": state_dir(root).exists(),
+        "state": store_dir(root).exists(),
     }
 
 
-def write_hooks(root: Path) -> None:
-    hooks = root / ".githooks"
-    hooks.mkdir(exist_ok=True)
-    for name, body in {
-        "pre-commit": (
-            "#!/bin/sh\nset -eu\n"
-            ".venv/bin/python -m quattroagents validate --project . --format json\n"
-            ".venv/bin/python -m ruff check .\n"
-        ),
-        "commit-msg": (
-            "#!/bin/sh\nset -eu\n"
-            'if [ "${QAGENTS_DISABLE_COMMIT_MSG:-0}" = "1" ]; then exit 0; fi\n'
-            "if ! grep -Eq '^\\[TASK-[0-9]+\\] ' \"$1\"; then\n"
-            '  echo "Commit message must start with [TASK-042] (or set '
-            'QAGENTS_DISABLE_COMMIT_MSG=1)." >&2\n'
-            "  exit 1\nfi\n"
-        ),
-        "pre-push": (
-            "#!/bin/sh\nset -eu\n"
-            ".venv/bin/python -m quattroagents validate --project . --format json\n"
-            ".venv/bin/python -m pytest\n"
-            ".venv/bin/python -m ruff check .\n"
-            ".venv/bin/python -m ruff format --check .\n"
-            ".venv/bin/python -m mypy src\n"
-            ".venv/bin/python -m build\n"
-        ),
-    }.items():
-        path = hooks / name
-        path.write_text(body)
-        path.chmod(0o755)
+def _call(tool_name: str, root: Path, **extra: Any) -> Any:
+    args: dict[str, Any] = {"project_root": str(root)}
+    args.update({key: value for key, value in extra.items() if value is not None})
+    return DISPATCH[tool_name](args)
 
 
-def enable_project_hooks(root: Path) -> bool:
-    """Activate project-local Git hooks when this is a Git working tree."""
-    if not (root / ".git").exists() or shutil.which("git") is None:
-        return False
-    subprocess.run(["git", "-C", str(root), "config", "core.hooksPath", ".githooks"], check=True)
-    return True
-
-
-def configure_generated_agents(
-    root: Path,
-    providers: list[str],
-    profile: str,
-    *,
-    interactive: bool = False,
-    answers_file: str | None = None,
-) -> list[str]:
-    """Analyze the project, interview the user, and render tailored agents/skills.
-
-    This is the venv-independent core of `setup()`, split out so it can run (and be
-    tested) without bootstrapping a virtualenv or reinstalling the package.
-    """
-    analysis = detect(root)
-    history_store = SetupHistoryStore()
-    history = history_store.recent(root)
-    brief = build_setup_interview_brief(analysis, history)
-    if answers_file:
-        raw_answers = json.loads(Path(answers_file).read_text(encoding="utf-8"))
-        interview = confirm_setup_interview(brief, raw_answers)
-    elif interactive:
-        interview = conduct_setup_interview(brief)
-    elif history:
-        interview = carry_forward_setup_interview(history[0]["interview"])
-    else:
-        interview = default_setup_interview(brief)
-    manifest = synthesize(analysis, interview, history)
-
-    initialise_project(root, providers, profile)
-    files = render(root, providers, manifest)
-    history_store.append(root, analysis, interview, manifest)
-    return files
-
-
-def setup(
-    root: Path,
-    providers: list[str],
-    profile: str,
-    yes: bool,
-    *,
-    interactive: bool = False,
-    answers_file: str | None = None,
-) -> dict[str, Any]:
-    venv = root / ".venv"
-    python = venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
-    if not python.exists():
-        subprocess.run([sys.executable, "-m", "venv", str(venv)], check=True)
-    if not yes:
-        raise RuntimeError("setup changes files; pass --yes for non-interactive setup")
-    version = subprocess.run(
-        [str(python), "-c", "import sys; print(sys.version_info >= (3, 11))"],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-    if version != "True":
-        raise RuntimeError("project .venv must use Python 3.11+")
-    source_root = Path(__file__).resolve().parents[2]
-    subprocess.run([str(python), "-m", "pip", "install", "--upgrade", "pip"], check=True)
-    subprocess.run([str(python), "-m", "pip", "install", "-e", f"{source_root}[dev]"], check=True)
-
-    files = configure_generated_agents(
-        root, providers, profile, interactive=interactive, answers_file=answers_file
-    )
-    write_hooks(root)
-    hooks_enabled = enable_project_hooks(root)
-    return {
-        "configured": files,
-        "doctor": doctor(root),
-        "git_hooks_enabled": hooks_enabled,
-        "validation": validate(root),
-    }
-
-
-def main(argv: list[str] | None = None) -> int:
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="qagents")
     parser.add_argument("--version", action="version", version=runtime_version())
     sub = parser.add_subparsers(dest="command", required=True)
-    for name in (
-        "init",
-        "analyze",
-        "propose",
-        "apply",
-        "doctor",
-        "validate",
-        "diff",
-        "rollback",
-        "reconfigure",
-        "benchmark",
-    ):
-        p = sub.add_parser(name)
-        p.add_argument("--project", default=".")
-        formats = ("json", "markdown") if name == "analyze" else ("json",)
-        p.add_argument("--format", choices=formats, default="json")
-        if name == "init":
-            p.add_argument("--providers", default="codex,claude")
-            p.add_argument("--profile", default="economy")
-            p.add_argument("--greenfield", action="store_true")
-            p.add_argument("--brownfield", action="store_true")
-        if name == "apply":
-            p.add_argument("--providers", default="codex,claude")
-    interview = sub.add_parser("interview")
-    interview.add_argument("--project", default=".")
-    interview.add_argument("--format", choices=("json", "markdown"), default="json")
-    interview.add_argument("--interactive", action="store_true")
-    p = sub.add_parser("setup")
-    p.add_argument("--project", default=".")
-    p.add_argument("--providers", default="codex,claude")
-    p.add_argument("--profile", default="economy")
-    p.add_argument("--install-mcp", default="recommended")
-    p.add_argument("--yes", action="store_true")
-    p.add_argument("--interactive", action="store_true")
-    p.add_argument("--answers-file")
-    p.add_argument("--format", choices=("json",), default="json")
+
+    # `--project` is registered on every *leaf* subparser (via `parents=`)
+    # rather than on group parsers like `agents`/`decisions`, so it can be
+    # passed after the subcommand: `qagents agents list --project .` —
+    # not just before it.
+    project_parent = argparse.ArgumentParser(add_help=False)
+    project_parent.add_argument("--project", default=".")
+
+    def leaf(name: str) -> argparse.ArgumentParser:
+        return sub.add_parser(name, parents=[project_parent])
+
+    leaf("analyze")
+    leaf("validate")
+    leaf("diff")
+    leaf("doctor")
+
+    setup_p = leaf("setup")
+    setup_p.add_argument("--providers", default="claude,codex")
+
     agents = sub.add_parser("agents")
-    agents.add_subparsers(dest="agents_command", required=True).add_parser("list").add_argument(
-        "--project", default="."
+    agents_sub = agents.add_subparsers(dest="agents_command", required=True)
+    agents_sub.add_parser("list", parents=[project_parent])
+    agents_sub.add_parser("generate", parents=[project_parent])
+
+    skills = sub.add_parser("skills")
+    skills.add_subparsers(dest="skills_command", required=True).add_parser(
+        "generate", parents=[project_parent]
     )
-    tasks = sub.add_parser("tasks")
-    ts = tasks.add_subparsers(dest="tasks_command", required=True)
-    task_list = ts.add_parser("list")
-    task_list.add_argument("--project", default=".")
-    task_list.add_argument("--milestone")
-    task_list.add_argument("--format", choices=("json",), default="json")
-    show = ts.add_parser("show")
-    show.add_argument("task_id")
-    show.add_argument("--project", default=".")
-    show.add_argument("--format", choices=("json",), default="json")
+
+    decisions = sub.add_parser("decisions")
+    decisions_sub = decisions.add_subparsers(dest="decisions_command", required=True)
+    dec_list = decisions_sub.add_parser("list", parents=[project_parent])
+    dec_list.add_argument("--status")
+    dec_list.add_argument("--scope")
+    dec_record = decisions_sub.add_parser("record", parents=[project_parent])
+    dec_record.add_argument("--id", required=True)
+    dec_record.add_argument("--title", required=True)
+    dec_record.add_argument("--value", default="{}")
+    dec_record.add_argument("--reason", default="")
+    dec_record.add_argument("--scope-paths", default="[]")
+    dec_record.add_argument("--decision-scope", default="project_wide")
+    dec_record.add_argument("--effects", default="{}")
+    dec_reopen = decisions_sub.add_parser("reopen", parents=[project_parent])
+    dec_reopen.add_argument("decision_id")
+    dec_reopen.add_argument("--reason", required=True)
+
+    task = sub.add_parser("task")
+    task_sub = task.add_subparsers(dest="task_command", required=True)
+    task_prepare = task_sub.add_parser("prepare", parents=[project_parent])
+    task_prepare.add_argument("--task-id", required=True)
+    task_prepare.add_argument("--goal", required=True)
+    task_prepare.add_argument("--base-agent-ids", default="[]")
+
     swarm = sub.add_parser("swarm")
-    swarm_plan = swarm.add_subparsers(dest="swarm_command", required=True).add_parser("plan")
-    swarm_plan.add_argument("task_id")
-    swarm_plan.add_argument("--project", default=".")
-    swarm_plan.add_argument("--format", choices=("json", "markdown"), default="json")
+    swarm_sub = swarm.add_subparsers(dest="swarm_command", required=True)
+    swarm_plan = swarm_sub.add_parser("plan", parents=[project_parent])
+    swarm_plan.add_argument("--task-id", required=True)
+    swarm_plan.add_argument("--goal", required=True)
+    swarm_plan.add_argument("--agent-ids")
+    swarm_plan.add_argument("--phases", default="{}")
+    swarm_plan.add_argument("--depends-on", default="{}")
+    swarm_plan.add_argument("--file-ownership", default="{}")
+
+    interview = sub.add_parser("interview")
+    interview_sub = interview.add_subparsers(dest="interview_command", required=True)
+    iv_start = interview_sub.add_parser("start", parents=[project_parent])
+    iv_start.add_argument("--session-id", required=True)
+    iv_start.add_argument("--session-type", default="initial_setup")
+    for name in ("state", "next", "answer", "summary", "confirm", "gaps", "conflicts"):
+        p = interview_sub.add_parser(name, parents=[project_parent])
+        p.add_argument("session_id")
+        if name == "answer":
+            p.add_argument("--answers", required=True)
+    iv_resolve = interview_sub.add_parser("resolve", parents=[project_parent])
+    iv_resolve.add_argument("--conflict-id", required=True)
+    iv_resolve.add_argument("--resolution", required=True)
+
     mcp = sub.add_parser("mcp")
-    ms = mcp.add_subparsers(dest="mcp_command", required=True)
-    serve_p = ms.add_parser("serve")
-    serve_p.add_argument("--project", default=".")
-    md = ms.add_parser("doctor")
-    md.add_argument("--project", default=".")
-    md.add_argument("--format", choices=("json",), default="json")
-    ml = ms.add_parser("list")
-    ml.add_argument("--project", default=".")
-    ml.add_argument("--format", choices=("json",), default="json")
-    metrics = sub.add_parser("metrics")
-    mr = metrics.add_subparsers(dest="metrics_command", required=True)
-    report = mr.add_parser("report")
-    report.add_argument("--project", default=".")
-    report.add_argument("--format", default="json")
-    selfh = sub.add_parser("self-hosting")
-    ss = selfh.add_subparsers(dest="self_command", required=True)
-    status = ss.add_parser("status")
-    status.add_argument("--project", default=".")
-    status.add_argument("--format", choices=("json",), default="json")
-    run = ss.add_parser("run")
-    runs = run.add_subparsers(dest="run_command", required=True)
-    run_create = runs.add_parser("create")
-    run_create.add_argument("run_id")
-    run_create.add_argument("task_id")
-    run_create.add_argument("--source-commit", required=True)
-    run_create.add_argument("--runtime-version", required=True)
-    run_create.add_argument("--project", default=".")
-    run_create.add_argument("--format", choices=("json",), default="json")
-    run_snapshot = runs.add_parser("snapshot")
-    run_snapshot.add_argument("run_id")
-    run_snapshot.add_argument("snapshot_id")
-    run_snapshot.add_argument("stage", choices=("plan", "execute", "review", "integrate"))
-    run_snapshot.add_argument("--summary", required=True)
-    run_snapshot.add_argument("--artifacts", default="[]")
-    run_snapshot.add_argument("--evidence", default="[]")
-    run_snapshot.add_argument("--changed-files", default="[]")
-    run_snapshot.add_argument("--human-approved", action="store_true")
-    run_snapshot.add_argument("--project", default=".")
-    run_snapshot.add_argument("--format", choices=("json",), default="json")
-    run_show = runs.add_parser("show")
-    run_show.add_argument("run_id")
-    run_show.add_argument("--project", default=".")
-    run_show.add_argument("--format", choices=("json",), default="json")
-    run_verify = runs.add_parser("verify")
-    run_verify.add_argument("run_id")
-    run_verify.add_argument("--project", default=".")
-    run_verify.add_argument("--format", choices=("json",), default="json")
-    args = parser.parse_args(argv)
+    mcp_sub = mcp.add_subparsers(dest="mcp_command", required=True)
+    mcp_sub.add_parser("serve")
+    mcp_sub.add_parser("list")
+
+    return parser
+
+
+_INTERVIEW_TOOL_BY_COMMAND = {
+    "start": "start_project_interview",
+    "state": "get_interview_state",
+    "next": "get_next_questions",
+    "answer": "submit_interview_answers",
+    "summary": "review_interview_summary",
+    "confirm": "confirm_interview_decisions",
+    "gaps": "list_open_knowledge_gaps",
+    "conflicts": "list_decision_conflicts",
+    "resolve": "resolve_decision_conflict",
+}
+
+
+def _dispatch_decisions(args: argparse.Namespace, root: Path) -> Any:
+    if args.decisions_command == "list":
+        return _call("list_decisions", root, status=args.status, decision_scope=args.scope)
+    if args.decisions_command == "record":
+        return _call(
+            "record_decision",
+            root,
+            id=args.id,
+            title=args.title,
+            value=args.value,
+            reason=args.reason,
+            scope_paths=args.scope_paths,
+            decision_scope=args.decision_scope,
+            effects=args.effects,
+        )
+    return _call("reopen_decision", root, decision_id=args.decision_id, reason=args.reason)
+
+
+def _dispatch_interview(args: argparse.Namespace, root: Path) -> Any:
+    tool_name = _INTERVIEW_TOOL_BY_COMMAND[args.interview_command]
+    if args.interview_command == "start":
+        return _call(tool_name, root, session_id=args.session_id, session_type=args.session_type)
+    if args.interview_command == "answer":
+        return _call(tool_name, root, session_id=args.session_id, answers=args.answers)
+    if args.interview_command == "resolve":
+        return _call(tool_name, root, conflict_id=args.conflict_id, resolution=args.resolution)
+    return _call(tool_name, root, session_id=args.session_id)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _build_parser().parse_args(argv)
     root = _root(getattr(args, "project", "."))
-    as_json = getattr(args, "format", None) == "json"
     try:
         out: Any
-        if args.command == "init":
-            out = initialise_project(root, args.providers.split(","), args.profile)
-        elif args.command == "analyze":
-            analysis = detect(root)
-            out = render_analysis_markdown(analysis) if args.format == "markdown" else analysis
-        elif args.command == "interview":
-            brief = build_interview_brief(detect(root))
-            record = conduct_interview(brief) if args.interactive else None
-            if args.format == "markdown":
-                out = (
-                    render_confirmed_interview_markdown(record)
-                    if record is not None
-                    else render_interview_brief_markdown(brief)
-                )
-            else:
-                out = record if record is not None else brief
+        if args.command == "analyze":
+            out = _call("analyze_project", root)
+        elif args.command == "validate":
+            out = _call("validate_generated_configuration", root)
+        elif args.command == "diff":
+            out = _call("show_generation_diff", root)
         elif args.command == "doctor":
             out = doctor(root)
-        elif args.command == "validate":
-            out = validate(root)
         elif args.command == "setup":
-            out = setup(
-                root,
-                args.providers.split(","),
-                args.profile,
-                args.yes,
-                interactive=args.interactive,
-                answers_file=args.answers_file,
-            )
-        elif args.command == "apply":
-            providers = args.providers.split(",")
-            latest = SetupHistoryStore().latest(root)
-            manifest = latest["manifest"] if latest is not None else None
-            out = {"generated": render(root, providers, manifest), "providers": providers}
+            out = _call("setup", root, providers=args.providers.split(","))
         elif args.command == "agents":
-            out = read_json(state_dir(root) / "fleet.json", {}).get("agents", [])
-        elif args.command == "tasks":
-            plane = ControlPlane(state_dir(root) / "control-plane.sqlite3")
-            out = (
-                plane.query(milestone=args.milestone)
-                if args.tasks_command == "list"
-                else plane.query(args.task_id)
+            tool = "list_agents" if args.agents_command == "list" else "generate_agents"
+            out = _call(tool, root)
+        elif args.command == "skills":
+            out = _call("generate_skills", root)
+        elif args.command == "decisions":
+            out = _dispatch_decisions(args, root)
+        elif args.command == "task":
+            out = _call(
+                "prepare_task",
+                root,
+                task_id=args.task_id,
+                goal=args.goal,
+                base_agent_ids=args.base_agent_ids,
             )
         elif args.command == "swarm":
-            task = ControlPlane(state_dir(root) / "control-plane.sqlite3").query(args.task_id)
-            assert isinstance(task, dict)
-            plan = build_swarm_plan(task, _maximum_parallel_workers(root))
-            out = render_swarm_plan_markdown(plan) if args.format == "markdown" else plan
-        elif args.command == "mcp" and args.mcp_command == "serve":
-            return serve(root)
-        elif args.command == "mcp":
-            out = {"tools": TOOLS, "resources": RESOURCES, "valid": validate(root)["valid"]}
-        elif args.command == "metrics":
-            metrics_payload = metrics_snapshot()
-            out = (
-                render_metrics_markdown(metrics_payload)
-                if args.format == "markdown"
-                else metrics_payload
+            out = _call(
+                "generate_swarm_plan",
+                root,
+                task_id=args.task_id,
+                goal=args.goal,
+                agent_ids=args.agent_ids,
+                phases=args.phases,
+                depends_on=args.depends_on,
+                file_ownership=args.file_ownership,
             )
-        elif args.command == "self-hosting":
-            if args.self_command == "status":
-                checks = {
-                    "setup": state_dir(root).exists(),
-                    "adapter_codex": (root / ".codex/config.toml").exists(),
-                    "adapter_claude": (root / ".mcp.json").exists(),
-                    "protected_kernel": (state_dir(root) / "quality-gates.json").exists(),
-                    "ci": (root / ".github/workflows/ci.yml").exists(),
-                }
-                out = {
-                    "status": "dogfooding" if all(checks.values()) else "disabled",
-                    "checks": checks,
-                    "note": "0.2 permits only low-risk dogfooding; official self-hosting starts in 0.3.",
-                }
-            else:
-                run_store = RunStore(state_dir(root) / "control-plane.sqlite3")
-                if args.run_command == "create":
-                    out = run_store.create(
-                        args.run_id, args.task_id, args.source_commit, args.runtime_version
-                    )
-                elif args.run_command == "snapshot":
-                    out = run_store.append_snapshot(
-                        args.run_id,
-                        args.snapshot_id,
-                        args.stage,
-                        args.summary,
-                        json.loads(args.artifacts),
-                        json.loads(args.evidence),
-                        json.loads(args.changed_files),
-                        args.human_approved,
-                    )
-                elif args.run_command == "show":
-                    out = run_store.query(args.run_id)
-                else:
-                    out = run_store.verify(args.run_id)
+        elif args.command == "interview":
+            out = _dispatch_interview(args, root)
+        elif args.command == "mcp" and args.mcp_command == "serve":
+            return serve()
+        elif args.command == "mcp":
+            out = {"tools": TOOLS}
         else:
-            out = {
-                "command": args.command,
-                "status": "available",
-                "note": "Use init/analyze/apply/setup for state-changing workflow.",
-            }
-        _emit(out, as_json or isinstance(out, (dict, list)))
+            out = {"command": args.command, "status": "unknown"}
+        _emit(out)
         return 0 if not isinstance(out, dict) or out.get("valid", True) else 1
-    except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as exc:
-        _emit({"error": str(exc)}, True)
+    except Exception as exc:  # noqa: BLE001
+        _emit({"error": str(exc)})
         return 2

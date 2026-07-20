@@ -1,8 +1,6 @@
 """MCP server for the Project Agent Factory.
 
-Same stdin/stdout JSON-RPC transport as the pre-rewrite control-plane
-server (`control_plane/mcp_server.py`, kept until #46 removes it): one
-JSON-RPC request per line on stdin, one response per line on stdout.
+One JSON-RPC request per line on stdin, one response per line on stdout.
 Every tool takes an explicit `project_root` argument and never blocks on
 interactive stdin — the interview flow is a sequence of discrete
 `tools/call`s (start -> get_next_questions -> submit_interview_answers ->

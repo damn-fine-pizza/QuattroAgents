@@ -4,9 +4,7 @@
       "command": ".venv/bin/qagents",
       "args": [
         "mcp",
-        "serve",
-        "--project",
-        "."
+        "serve"
       ]
     }
   }

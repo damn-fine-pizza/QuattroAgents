@@ -53,7 +53,7 @@ jobs:
       - run: .venv/bin/python -m ruff check .
       - run: .venv/bin/python -m ruff format --check .
       - run: .venv/bin/python -m mypy src
-      - run: .venv/bin/python -m quattroagents validate --format json
+      - run: .venv/bin/python -m quattroagents validate
       - run: .venv/bin/python -m build
       - uses: actions/upload-artifact@v4
         with:

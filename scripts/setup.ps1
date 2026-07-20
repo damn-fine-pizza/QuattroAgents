@@ -6,6 +6,6 @@ if (-not (Test-Path ".venv\Scripts\python.exe")) { python -m venv .venv }
 $VenvPython = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
 & $VenvPython -m pip install --upgrade pip
 & $VenvPython -m pip install -e ".[dev]"
-& $VenvPython -m quattroagents setup --project $ProjectRoot --providers codex,claude --profile economy --install-mcp recommended --yes
-& $VenvPython -m quattroagents doctor --project $ProjectRoot --format json
-& $VenvPython -m quattroagents validate --project $ProjectRoot --format json
+& $VenvPython -m quattroagents setup --project $ProjectRoot --providers codex,claude
+& $VenvPython -m quattroagents doctor --project $ProjectRoot
+& $VenvPython -m quattroagents validate --project $ProjectRoot
