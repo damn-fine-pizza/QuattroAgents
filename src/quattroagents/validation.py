@@ -11,6 +11,7 @@ import json
 from dataclasses import dataclass, field
 
 from quattroagents.domain import AgentDefinition, AgentMode, SkillDefinition, SwarmDefinition
+from quattroagents.formatting import AgentDisplayFormatValidator, render_agent_display
 
 
 @dataclass
@@ -220,6 +221,20 @@ def validate_generated_configuration(
                             path=agent.id,
                         )
                     )
+
+    # Check 9: Agent display line must match the canonical
+    # `<agent-name> [<model>] <description>` grammar
+    display_validator = AgentDisplayFormatValidator()
+    for agent in agents:
+        display_result = display_validator.validate(render_agent_display(agent))
+        for format_violation in display_result.violations:
+            violations.append(
+                ConfigViolation(
+                    code=f"agent_display_format_{format_violation.code}",
+                    message=f"agent '{agent.id}' display line: {format_violation.message}",
+                    path=agent.id,
+                )
+            )
 
     return ConfigValidationResult(
         valid=(len(violations) == 0),

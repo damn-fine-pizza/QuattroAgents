@@ -24,7 +24,7 @@ def test_validate_fully_valid_configuration() -> None:
     agents = [
         AgentDefinition(
             id="agent-1",
-            description="Test agent",
+            description="Test agent one",
             completion_criteria=["Task complete"],
         ),
         AgentDefinition(
@@ -52,7 +52,7 @@ def test_validate_duplicate_agent_ids() -> None:
     agents = [
         AgentDefinition(
             id="agent-1",
-            description="First agent",
+            description="First test agent",
             completion_criteria=["Done"],
         ),
         AgentDefinition(
@@ -75,7 +75,7 @@ def test_validate_duplicate_skill_ids() -> None:
     agents = [
         AgentDefinition(
             id="agent-1",
-            description="Agent",
+            description="Test agent description",
             completion_criteria=["Done"],
         ),
     ]
@@ -115,7 +115,7 @@ def test_validate_skill_missing_trigger_and_workflow() -> None:
     agents = [
         AgentDefinition(
             id="agent-1",
-            description="Agent",
+            description="Test agent description",
             completion_criteria=["Done"],
         ),
     ]
@@ -142,7 +142,7 @@ def test_validate_skill_with_trigger_is_valid() -> None:
     agents = [
         AgentDefinition(
             id="agent-1",
-            description="Agent",
+            description="Test agent description",
             completion_criteria=["Done"],
         ),
     ]
@@ -167,7 +167,7 @@ def test_validate_skill_with_workflow_is_valid() -> None:
     agents = [
         AgentDefinition(
             id="agent-1",
-            description="Agent",
+            description="Test agent description",
             completion_criteria=["Done"],
         ),
     ]
@@ -192,7 +192,7 @@ def test_validate_skill_with_body_is_valid() -> None:
     agents = [
         AgentDefinition(
             id="agent-1",
-            description="Agent",
+            description="Test agent description",
             completion_criteria=["Done"],
         ),
     ]
@@ -217,7 +217,7 @@ def test_validate_write_agent_without_limits() -> None:
     agents = [
         AgentDefinition(
             id="write-agent",
-            description="Write agent",
+            description="Write-mode agent",
             completion_criteria=["Done"],
             mode=AgentMode.WRITE,
             relevant_paths=[],
@@ -238,7 +238,7 @@ def test_validate_write_agent_with_relevant_paths_is_valid() -> None:
     agents = [
         AgentDefinition(
             id="write-agent",
-            description="Write agent",
+            description="Write-mode agent",
             completion_criteria=["Done"],
             mode=AgentMode.WRITE,
             relevant_paths=["/path/to/write"],
@@ -257,7 +257,7 @@ def test_validate_write_agent_with_constraints_is_valid() -> None:
     agents = [
         AgentDefinition(
             id="write-agent",
-            description="Write agent",
+            description="Write-mode agent",
             completion_criteria=["Done"],
             mode=AgentMode.WRITE,
             relevant_paths=[],
@@ -276,7 +276,7 @@ def test_validate_read_only_agent_without_limits_is_valid() -> None:
     agents = [
         AgentDefinition(
             id="read-agent",
-            description="Read agent",
+            description="Read-only agent",
             completion_criteria=["Done"],
             mode=AgentMode.READ_ONLY,
             relevant_paths=[],
@@ -295,7 +295,7 @@ def test_validate_skill_references_unknown_agent() -> None:
     agents = [
         AgentDefinition(
             id="agent-1",
-            description="Agent",
+            description="Agent under test",
             completion_criteria=["Done"],
         ),
     ]
@@ -321,7 +321,7 @@ def test_validate_skill_with_multiple_agents_mixed() -> None:
     agents = [
         AgentDefinition(
             id="agent-1",
-            description="Agent",
+            description="Agent under test",
             completion_criteria=["Done"],
         ),
     ]
@@ -345,7 +345,7 @@ def test_validate_swarm_step_references_unknown_agent() -> None:
     agents = [
         AgentDefinition(
             id="agent-1",
-            description="Agent",
+            description="Agent under test",
             completion_criteria=["Done"],
         ),
     ]
@@ -370,7 +370,7 @@ def test_validate_swarm_required_review_agents_unknown() -> None:
     agents = [
         AgentDefinition(
             id="agent-1",
-            description="Agent",
+            description="Agent under test",
             completion_criteria=["Done"],
         ),
     ]
@@ -394,12 +394,12 @@ def test_validate_swarm_dependency_cycle() -> None:
     agents = [
         AgentDefinition(
             id="agent-a",
-            description="Agent A",
+            description="Agent A description",
             completion_criteria=["Done"],
         ),
         AgentDefinition(
             id="agent-b",
-            description="Agent B",
+            description="Agent B description",
             completion_criteria=["Done"],
         ),
     ]
@@ -423,9 +423,15 @@ def test_validate_swarm_dependency_cycle() -> None:
 def test_validate_swarm_three_way_dependency_cycle() -> None:
     """A swarm with a three-way circular dependency triggers violation."""
     agents = [
-        AgentDefinition(id="agent-a", description="A", completion_criteria=["Done"]),
-        AgentDefinition(id="agent-b", description="B", completion_criteria=["Done"]),
-        AgentDefinition(id="agent-c", description="C", completion_criteria=["Done"]),
+        AgentDefinition(
+            id="agent-a", description="Agent A description", completion_criteria=["Done"]
+        ),
+        AgentDefinition(
+            id="agent-b", description="Agent B description", completion_criteria=["Done"]
+        ),
+        AgentDefinition(
+            id="agent-c", description="Agent C description", completion_criteria=["Done"]
+        ),
     ]
     # Create cycle: A -> B -> C -> A
     swarm = SwarmDefinition(
@@ -448,9 +454,15 @@ def test_validate_swarm_three_way_dependency_cycle() -> None:
 def test_validate_swarm_valid_dependencies() -> None:
     """A swarm with valid (non-cyclic) dependencies is accepted."""
     agents = [
-        AgentDefinition(id="agent-a", description="A", completion_criteria=["Done"]),
-        AgentDefinition(id="agent-b", description="B", completion_criteria=["Done"]),
-        AgentDefinition(id="agent-c", description="C", completion_criteria=["Done"]),
+        AgentDefinition(
+            id="agent-a", description="Agent A description", completion_criteria=["Done"]
+        ),
+        AgentDefinition(
+            id="agent-b", description="Agent B description", completion_criteria=["Done"]
+        ),
+        AgentDefinition(
+            id="agent-c", description="Agent C description", completion_criteria=["Done"]
+        ),
     ]
     # Valid dependencies: A -> B -> C (acyclic)
     swarm = SwarmDefinition(
@@ -474,7 +486,7 @@ def test_validate_agent_requires_unavailable_tool() -> None:
     agents = [
         AgentDefinition(
             id="agent-1",
-            description="Agent",
+            description="Agent under test",
             completion_criteria=["Done"],
             mandatory_tools=["tool-x"],
         ),
@@ -495,7 +507,7 @@ def test_validate_agent_with_available_tools_is_valid() -> None:
     agents = [
         AgentDefinition(
             id="agent-1",
-            description="Agent",
+            description="Agent under test",
             completion_criteria=["Done"],
             mandatory_tools=["tool-a", "tool-b"],
         ),
@@ -513,7 +525,7 @@ def test_validate_no_tool_check_when_available_tool_ids_is_none() -> None:
     agents = [
         AgentDefinition(
             id="agent-1",
-            description="Agent",
+            description="Agent under test",
             completion_criteria=["Done"],
             mandatory_tools=["tool-x"],
         ),
