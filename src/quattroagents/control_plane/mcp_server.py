@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from .. import runtime_version
 from .leases import Leases
 from .tasks import ControlPlane
 
@@ -41,7 +42,7 @@ def serve(root: Path) -> int:
             if method == "initialize":
                 result: Any = {
                     "protocolVersion": "2024-11-05",
-                    "serverInfo": {"name": "quattroagents", "version": "0.2.0"},
+                    "serverInfo": {"name": "quattroagents", "version": runtime_version()},
                     "capabilities": {"tools": {}, "resources": {}},
                 }
             elif method == "tools/list":
@@ -61,7 +62,9 @@ def serve(root: Path) -> int:
                 name, args = params["name"], params.get("arguments", {})
                 out: Any
                 if name == "task_create":
-                    out = tasks.create(args["task_id"], args.get("payload", {}))
+                    out = tasks.create(
+                        args["task_id"], args.get("payload", {}), args.get("milestone")
+                    )
                 elif name == "task_claim":
                     out = {"claimed": tasks.claim(args["task_id"], args["agent"])}
                 elif name == "task_update":
@@ -69,7 +72,7 @@ def serve(root: Path) -> int:
                         "updated": tasks.update(args["task_id"], args["status"], args.get("agent"))
                     }
                 elif name == "task_query":
-                    out = tasks.query(args.get("task_id"))
+                    out = tasks.query(args.get("task_id"), args.get("milestone"))
                 elif name == "lease_acquire":
                     out = {
                         "acquired": leases.acquire(

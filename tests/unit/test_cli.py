@@ -15,6 +15,18 @@ def test_doctor_reports_optional_tool_availability(monkeypatch) -> None:
     assert report["codebase_memory_mcp"] is True
 
 
+def test_doctor_reports_runtime_revision(monkeypatch) -> None:
+    monkeypatch.setattr("quattroagents.cli.runtime_identity", lambda: ("0123456789ab", True))
+    monkeypatch.setattr("quattroagents.cli.runtime_version", lambda: "0.2.0+g0123456789ab.dirty")
+
+    report = doctor(Path("/project"))
+
+    assert report["version"] == "0.2.0+g0123456789ab.dirty"
+    assert report["package_version"] == "0.2.0"
+    assert report["revision"] == "0123456789ab"
+    assert report["dirty"] is True
+
+
 def test_metrics_json_snapshot_remains_compatible() -> None:
     assert metrics_snapshot() == {
         "samples": 0,

@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from . import __version__
+from . import runtime_identity, runtime_version
 from .adapters import render
 from .control_plane.mcp_server import RESOURCES, TOOLS, serve
 from .control_plane.tasks import ControlPlane
@@ -100,8 +100,13 @@ def validate(root: Path) -> dict[str, Any]:
 
 
 def doctor(root: Path) -> dict[str, Any]:
+    revision, dirty = runtime_identity()
+    version = runtime_version()
     return {
-        "version": __version__,
+        "version": version,
+        "package_version": version.split("+", maxsplit=1)[0],
+        "revision": revision,
+        "dirty": dirty,
         "python": sys.version.split()[0],
         "root": str(root),
         "venv": str(root / ".venv"),
@@ -171,7 +176,7 @@ def setup(root: Path, providers: list[str], profile: str, yes: bool) -> dict[str
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="qagents")
-    parser.add_argument("--version", action="version", version=__version__)
+    parser.add_argument("--version", action="version", version=runtime_version())
     sub = parser.add_subparsers(dest="command", required=True)
     for name in (
         "init",
@@ -211,6 +216,7 @@ def main(argv: list[str] | None = None) -> int:
     ts = tasks.add_subparsers(dest="tasks_command", required=True)
     task_list = ts.add_parser("list")
     task_list.add_argument("--project", default=".")
+    task_list.add_argument("--milestone")
     task_list.add_argument("--json", action="store_true")
     show = ts.add_parser("show")
     show.add_argument("task_id")
@@ -258,7 +264,11 @@ def main(argv: list[str] | None = None) -> int:
             out = read_json(state_dir(root) / "fleet.json", {}).get("agents", [])
         elif args.command == "tasks":
             plane = ControlPlane(state_dir(root) / "control-plane.sqlite3")
-            out = plane.query() if args.tasks_command == "list" else plane.query(args.task_id)
+            out = (
+                plane.query(milestone=args.milestone)
+                if args.tasks_command == "list"
+                else plane.query(args.task_id)
+            )
         elif args.command == "mcp" and args.mcp_command == "serve":
             return serve(root)
         elif args.command == "mcp":

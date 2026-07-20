@@ -33,6 +33,7 @@ class TaskContract:
     dependencies: list[str] = field(default_factory=list)
     escalate_when: list[str] = field(default_factory=list)
     schema_version: int = 1
+    milestone: str | None = None
 
     def ready_for_small(self) -> bool:
         return bool(
