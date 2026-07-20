@@ -18,11 +18,11 @@ pipx --version   # option B
 
 ## Direct `mcp add`
 
-Run these commands from the repository you want QuattroAgents to manage. They store an absolute project path so the server does not depend on a later shell working directory. Use a published release tag to select a reproducible version; replace `v0.2.2` with a later tag or a commit SHA when required.
+Run these commands from the repository you want QuattroAgents to manage. They store an absolute project path so the server does not depend on a later shell working directory. Use a published release tag to select a reproducible version; replace `v0.5.0` with a later tag or a commit SHA when required.
 
 ```sh
 QA_ROOT=$(pwd)
-QA_REF="v0.2.2"
+QA_REF="v0.5.0"
 QA_SOURCE="git+https://github.com/damn-fine-pizza/QuattroAgents.git@$QA_REF"
 ```
 
