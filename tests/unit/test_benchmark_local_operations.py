@@ -1,6 +1,7 @@
 import json
 import subprocess
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parents[2]
@@ -49,7 +50,9 @@ def test_benchmark_records_raw_paired_results_and_preserves_failures(tmp_path: P
     baseline_results = report["results"][::2]
     assert [item["exit_status"] for item in baseline_results] == [7, 7]
     assert all(item["stdout_bytes"] == len(b"baseline\n") for item in baseline_results)
+    assert all(item["stdout"] == "baseline\n" for item in baseline_results)
     assert all(item["stderr_bytes"] == 0 for item in baseline_results)
+    assert all(item["stderr"] == "" for item in baseline_results)
 
     assisted_result = report["results"][1]
     assert assisted_result["command"] == [
@@ -59,10 +62,13 @@ def test_benchmark_records_raw_paired_results_and_preserves_failures(tmp_path: P
     ]
     assert assisted_result["command_word_count"] == 3
     assert assisted_result["stdout_bytes"] == len(b"ok\n")
+    assert assisted_result["stdout"] == "ok\n"
     assert assisted_result["stderr_bytes"] == len(b"warning\n")
+    assert assisted_result["stderr"] == "warning\n"
     assert assisted_result["exit_status"] == 0
     assert assisted_result["elapsed_duration_ns"] >= 0
     assert assisted_result["elapsed_duration_seconds"] >= 0
+    assert datetime.fromisoformat(assisted_result["observed_at_utc"]).tzinfo == UTC
     assert assisted_result["source_commit"] == "unknown"
     assert set(assisted_result["runtime_identity"]) == {
         "implementation",

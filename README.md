@@ -65,6 +65,14 @@ The local `quattroagents` MCP is SQLite/WAL-backed and exposes a small task/leas
 
 Configuration generation backs up replaced files below `.quattroagents/backups/`; runtime data and credentials are ignored. Protected-kernel paths require medium-or-higher implementation, independent review and human approval. Never force-push.
 
+## CI and releases
+
+Quality gates run after each merge to `main` and can also be triggered manually.
+Releases are manual, tag-based workflow dispatches: provide an existing version tag
+that matches the package version (for example, `v0.5.0`) and a numeric build
+identifier. The release workflow verifies the tag is reachable from `main`, runs
+the quality gates, builds distributions, and publishes the release assets.
+
 ## Self-hosting roadmap
 
 - **0.2: dogfooding** — low-risk local tasks only; user-intent interviews and swarm plans are local, deterministic and plan-only.

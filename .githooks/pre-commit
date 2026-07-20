@@ -2,3 +2,4 @@
 set -eu
 .venv/bin/python -m quattroagents validate --project . --format json
 .venv/bin/python -m ruff check .
+.venv/bin/python -m ruff format --check .

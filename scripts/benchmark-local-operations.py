@@ -16,6 +16,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -58,6 +59,7 @@ def run_observation(
     runtime: dict[str, str],
 ) -> dict[str, object]:
     """Execute a local command once and retain its raw outcome."""
+    observed_at_utc = datetime.now(UTC).isoformat()
     started = time.perf_counter_ns()
     try:
         completed = subprocess.run(
@@ -69,10 +71,14 @@ def run_observation(
         exit_status = completed.returncode
         stdout_bytes = len(completed.stdout)
         stderr_bytes = len(completed.stderr)
+        stdout = completed.stdout.decode("utf-8", errors="replace")
+        stderr = completed.stderr.decode("utf-8", errors="replace")
     except OSError as error:
         exit_status = None
         stdout_bytes = 0
-        stderr_bytes = len(str(error).encode("utf-8"))
+        stdout = ""
+        stderr = str(error)
+        stderr_bytes = len(stderr.encode("utf-8"))
     elapsed_duration_ns = time.perf_counter_ns() - started
     return {
         "command": list(command),
@@ -82,10 +88,13 @@ def run_observation(
         "elapsed_duration_seconds": elapsed_duration_ns / 1_000_000_000,
         "exit_status": exit_status,
         "iteration": iteration,
+        "observed_at_utc": observed_at_utc,
         "runtime_identity": runtime,
         "source_commit": commit,
         "stderr_bytes": stderr_bytes,
+        "stderr": stderr,
         "stdout_bytes": stdout_bytes,
+        "stdout": stdout,
     }
 
 
