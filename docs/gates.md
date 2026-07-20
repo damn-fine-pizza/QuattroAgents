@@ -16,3 +16,35 @@ The GitHub Actions workflow makes the following checks required for pull request
 | Provider adapters | Targeted adapter/setup tests for Codex and Claude | Verify generated configuration, skills, agents, MCP settings, and hooks. |
 
 The CI workflow is a versioned operational policy, not a replacement for `.quattroagents/quality-gates.json`. Changes to that authoritative protected configuration still require human approval.
+
+## Install local gate tools
+
+Install all Python gate tools in the project virtual environment; do not rely on globally installed Python packages.
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install -e ".[dev]"
+```
+
+This one command installs the package itself (`quattroagents` and `qagents`) and every Python command used by the gates:
+
+| Command | Installation |
+| --- | --- |
+| `.venv/bin/python -m pytest` | Included in `.[dev]`. |
+| `.venv/bin/python -m ruff` | Included in `.[dev]`. |
+| `.venv/bin/python -m mypy` | Included in `.[dev]`. |
+| `.venv/bin/python -m build` | Included in `.[dev]`. |
+| `.venv/bin/python -m quattroagents` | Installed from this checkout by `-e ".[dev]"`; use it instead of a global `qagents`. |
+
+`actionlint` checks GitHub Actions YAML and is optional for local work; GitHub remains the final workflow runner. Install it outside the Python environment with one of the official methods:
+
+```sh
+# macOS or Linux with Homebrew
+brew install actionlint
+
+# Any platform with Go installed; ensure "$(go env GOPATH)/bin" is on PATH
+go install github.com/rhysd/actionlint/cmd/actionlint@latest
+```
+
+Then run `actionlint .github/workflows/ci.yml`. The [actionlint project documentation](https://github.com/rhysd/actionlint#readme) also provides signed release binaries and container-based alternatives.
