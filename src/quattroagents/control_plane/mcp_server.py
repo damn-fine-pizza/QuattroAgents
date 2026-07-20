@@ -25,6 +25,7 @@ RESOURCES = [
     "qagents://tasks/ready",
     "qagents://metrics/current",
 ]
+INPUT_SCHEMA = {"type": "object", "additionalProperties": True}
 
 
 def serve(root: Path) -> int:
@@ -35,6 +36,8 @@ def serve(root: Path) -> int:
             request = json.loads(raw)
             method = request.get("method")
             params: dict[str, Any] = request.get("params", {})
+            if "id" not in request:
+                continue
             if method == "initialize":
                 result: Any = {
                     "protocolVersion": "2024-11-05",
@@ -42,7 +45,16 @@ def serve(root: Path) -> int:
                     "capabilities": {"tools": {}, "resources": {}},
                 }
             elif method == "tools/list":
-                result = {"tools": [{"name": name, "description": name} for name in TOOLS]}
+                result = {
+                    "tools": [
+                        {
+                            "name": name,
+                            "description": name.replace("_", " "),
+                            "inputSchema": INPUT_SCHEMA,
+                        }
+                        for name in TOOLS
+                    ]
+                }
             elif method == "resources/list":
                 result = {"resources": [{"uri": uri, "name": uri} for uri in RESOURCES]}
             elif method == "tools/call":

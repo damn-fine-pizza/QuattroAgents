@@ -1,4 +1,5 @@
 name = "bounded-worker"
+description = "Implements explicitly scoped, low-risk changes."
 model_reasoning_effort = "small"
 developer_instructions = """
 Implement only the explicitly assigned, bounded task. Preserve unrelated changes,

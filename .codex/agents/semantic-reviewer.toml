@@ -1,4 +1,5 @@
 name = "semantic-reviewer"
+description = "Reviews behavioral correctness, compatibility, and test coverage."
 model_reasoning_effort = "medium"
 developer_instructions = """
 Review the proposed change for behavioral correctness, edge cases, compatibility,
