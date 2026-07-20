@@ -12,5 +12,6 @@ VENV_PYTHON="$PROJECT_ROOT/.venv/bin/python"
 "$VENV_PYTHON" -m quattroagents setup --project "$PROJECT_ROOT" --providers codex,claude --profile economy --install-mcp recommended --yes
 "$PROJECT_ROOT/scripts/detect-rtk.sh"
 "$PROJECT_ROOT/scripts/detect-codebase-memory-mcp.sh"
+echo "Use scripts/rtk.sh to run RTK with the project's .venv developer tools."
 "$VENV_PYTHON" -m quattroagents doctor --project "$PROJECT_ROOT" --json
 "$VENV_PYTHON" -m quattroagents validate --project "$PROJECT_ROOT" --json

@@ -47,3 +47,21 @@ def test_optional_tool_detection_is_rerunnable(
         text=True,
     )
     assert present.stdout.strip() == "optional-tool 9.9.9"
+
+
+def test_rtk_launcher_exposes_project_virtualenv_tools(tmp_path: Path) -> None:
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    fake_rtk = fake_bin / "rtk"
+    fake_rtk.write_text("#!/usr/bin/env sh\nprintf '%s\\n' \"${PATH%%:*}\"\n")
+    fake_rtk.chmod(0o755)
+
+    result = subprocess.run(
+        [str(ROOT / "scripts" / "rtk.sh"), "ruff", "check", "."],
+        capture_output=True,
+        check=True,
+        env={**os.environ, "PATH": f"{fake_bin}:/usr/bin:/bin"},
+        text=True,
+    )
+
+    assert result.stdout.strip() == str(ROOT / ".venv" / "bin")

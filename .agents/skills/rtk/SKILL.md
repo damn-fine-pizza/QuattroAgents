@@ -7,6 +7,6 @@ description: Use RTK for concise, token-efficient repository diagnostics when th
 
 Run `scripts/detect-rtk.sh` before relying on RTK. If it is unavailable, use the native command; never install RTK automatically.
 
-Use dedicated RTK commands such as `rtk git`, `rtk pytest`, `rtk ruff`, `rtk mypy`, and `rtk rg` for concise diagnostics. Do not use `rtk run`, because it evaluates a shell command.
+Use `scripts/rtk.sh` for dedicated RTK commands such as `git`, `pytest`, `ruff`, `mypy`, and `rg`; the launcher exposes the project's `.venv/bin` tools. Do not use `rtk run`, because it evaluates a shell command.
 
-RTK discovers underlying executables through `PATH`. For project verification that must use the virtual environment, run the required `.venv/bin/python -m ...` command directly, especially when a formatter or linter is not globally installed.
+For project verification, run the required `.venv/bin/python -m ...` command directly rather than a condensed RTK invocation.
