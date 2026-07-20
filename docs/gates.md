@@ -4,7 +4,7 @@ Hard gates protect the central routing, configuration, control-plane, validation
 
 ## CI quality gates
 
-The GitHub Actions workflow makes the following checks required for pull requests to `main`. They are intentionally split so failures are precise while the total run remains short.
+The GitHub Actions workflow runs after a push to `main` and can be started manually. With a protected `main` that accepts only pull-request merges, this runs once per merge and avoids duplicate PR compute. It intentionally provides post-merge evidence, not a GitHub pre-merge check.
 
 Maintainers can also start the complete workflow from the repository **Actions** page: select **Quality gates**, choose **Run workflow**, and select the `main` branch or another branch containing the workflow file.
 
@@ -13,11 +13,13 @@ Maintainers can also start the complete workflow from the repository **Actions**
 | Install smoke | `.venv/bin/python -m pip install .` and `-m quattroagents --help` on Python 3.11 and 3.12 | Verify a clean runtime installation on the supported range. |
 | Test suite | `.venv/bin/python -m pytest` | Verify unit and integration behavior. |
 | Static quality | Ruff check, Ruff format check, and mypy | Enforce lint, formatting, and strict types. |
-| QuattroAgents validation | `.venv/bin/python -m quattroagents validate --json` | Verify canonical project state. |
+| QuattroAgents validation | `.venv/bin/python -m quattroagents validate --format json` | Verify canonical project state. |
 | Delivery artifact | `.venv/bin/python -m build` plus uploaded `dist/` artifact | Verify that an installable sdist and wheel can be produced. |
 | Provider adapters | Targeted adapter/setup tests for Codex and Claude | Verify generated configuration, skills, agents, MCP settings, and hooks. |
 
 The CI workflow is a versioned operational policy, not a replacement for `.quattroagents/quality-gates.json`. Changes to that authoritative protected configuration still require human approval.
+
+`qagents setup --yes` writes the same project-local `.githooks/pre-push` suite and activates it through `git config core.hooksPath .githooks` when the target is a Git repository. It runs the test suite, Ruff check and format check, mypy, QuattroAgents validation, and build before a push. Git hooks are a local safety net and can be bypassed, so maintainers should also protect `main` against direct pushes. Do not configure this workflow's status checks as required for PR merges: it does not run on `pull_request` events.
 
 ## Install local gate tools
 

@@ -3,6 +3,8 @@ import pytest
 from quattroagents.core.swarm import (
     build_interview_brief,
     build_swarm_plan,
+    conduct_interview,
+    render_confirmed_interview_markdown,
     render_interview_brief_markdown,
     render_swarm_plan_markdown,
 )
@@ -19,6 +21,18 @@ def task() -> dict[str, object]:
                 {"id": "REQ-2", "text": "Review output"},
             ],
             "acceptance_commands": ["pytest", "ruff check ."],
+            "interview": {
+                "schema_version": 1,
+                "status": "confirmed",
+                "answers": {
+                    "INTENT-1": "Deliver a bounded swarm plan.",
+                    "INTENT-2": "Only local planning is in scope.",
+                    "INTENT-3": "Unit and integration tests pass.",
+                    "INTENT-4": "Do not change the protected kernel.",
+                    "INTENT-5": "Review runs after independent documentation and test work.",
+                },
+                "analysis": {"languages": ["python"]},
+            },
             "swarm_work_items": [
                 {
                     "id": "docs",
@@ -50,6 +64,10 @@ def test_swarm_plan_groups_independent_non_overlapping_workers() -> None:
     assert plan["waves"][0]["workers"][0]["context_summary"]["context_refs"] == [
         "docs/communication-protocol.md"
     ]
+    assert plan["interview"]["analysis"] == {"languages": ["python"]}
+    assert plan["waves"][0]["workers"][0]["context_summary"]["user_intent"]["INTENT-1"] == (
+        "Deliver a bounded swarm plan."
+    )
     assert "no agent or subagent is launched" in render_swarm_plan_markdown(plan).lower()
 
 
@@ -110,3 +128,32 @@ def test_brownfield_interview_requires_human_intent_before_planning() -> None:
         "INTENT-5",
     ]
     assert "before creating worker packets" in render_interview_brief_markdown(brief).lower()
+
+
+def test_confirmed_interview_is_required_and_rendered_for_task_contract(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    brief = build_interview_brief(
+        {"languages": ["python"], "ci": [], "codex": True, "claude": False}
+    )
+    responses = iter(
+        [
+            "Deliver a report.",
+            "Only documentation.",
+            "Tests pass.",
+            "No protected files.",
+            "No parallel work.",
+        ]
+    )
+    monkeypatch.setattr("builtins.input", lambda: next(responses))
+
+    record = conduct_interview(brief)
+
+    assert record["status"] == "confirmed"
+    assert '"interview"' in render_confirmed_interview_markdown(record)
+    missing = task()
+    payload = missing["payload"]
+    assert isinstance(payload, dict)
+    payload.pop("interview")
+    with pytest.raises(ValueError, match="confirmed user interview"):
+        build_swarm_plan(missing)

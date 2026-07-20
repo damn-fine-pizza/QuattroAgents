@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import json
+import sys
 from typing import Any
+
+_INTERVIEW_IDS = ("INTENT-1", "INTENT-2", "INTENT-3", "INTENT-4", "INTENT-5")
 
 
 def build_interview_brief(analysis: dict[str, object]) -> dict[str, Any]:
@@ -77,6 +81,42 @@ def render_interview_brief_markdown(brief: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def confirm_interview(brief: dict[str, Any], answers: dict[str, str]) -> dict[str, Any]:
+    """Validate a user's answers and return a task-contract-ready interview record."""
+    confirmed: dict[str, str] = {}
+    for identifier in _INTERVIEW_IDS:
+        answer = answers.get(identifier)
+        if not isinstance(answer, str) or not answer.strip():
+            raise ValueError(f"missing confirmed answer: {identifier}")
+        confirmed[identifier] = answer.strip()
+    return {
+        "schema_version": 1,
+        "status": "confirmed",
+        "answers": confirmed,
+        "analysis": brief["analysis"],
+    }
+
+
+def conduct_interview(brief: dict[str, Any]) -> dict[str, Any]:
+    """Prompt a terminal user for the required answers without storing them."""
+    answers: dict[str, str] = {}
+    for item in brief["questions"]:
+        print(f"{item['id']} — {item['question']}\n> ", end="", file=sys.stderr, flush=True)
+        answers[item["id"]] = input()
+    return confirm_interview(brief, answers)
+
+
+def render_confirmed_interview_markdown(record: dict[str, Any]) -> str:
+    """Render a confirmed record that can be copied into a task contract."""
+    contract_record = json.dumps({"interview": record}, indent=2, sort_keys=True)
+    lines = ["# Confirmed user intent", "", "## Answers", ""]
+    lines.extend(
+        f"- {identifier}: {record['answers'][identifier]}" for identifier in _INTERVIEW_IDS
+    )
+    lines.extend(["", "## Task-contract record", "", "```json", contract_record, "```", ""])
+    return "\n".join(lines)
+
+
 def _string_list(value: object, field: str) -> list[str]:
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
         raise ValueError(f"{field} must be a list of strings")
@@ -138,7 +178,22 @@ def _work_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
     return sorted(items, key=lambda item: item["id"])
 
 
-def _context_summary(payload: dict[str, Any], item: dict[str, Any]) -> dict[str, Any]:
+def _confirmed_interview(payload: dict[str, Any]) -> dict[str, Any]:
+    interview = payload.get("interview")
+    if not isinstance(interview, dict) or interview.get("status") != "confirmed":
+        raise ValueError("swarm planning requires a confirmed user interview")
+    answers = interview.get("answers")
+    if not isinstance(answers, dict):
+        raise ValueError("swarm planning requires confirmed interview answers")
+    analysis = interview.get("analysis", {})
+    if not isinstance(analysis, dict):
+        raise ValueError("swarm planning requires valid interview analysis")
+    return confirm_interview({"analysis": analysis}, answers)
+
+
+def _context_summary(
+    payload: dict[str, Any], item: dict[str, Any], interview: dict[str, Any]
+) -> dict[str, Any]:
     _requirement_ids(payload)
     requirements = {
         requirement["id"]: requirement["text"]
@@ -155,6 +210,7 @@ def _context_summary(payload: dict[str, Any], item: dict[str, Any]) -> dict[str,
     )
     return {
         "objective": item["objective"],
+        "user_intent": interview["answers"],
         "requirements": [
             {"id": identifier, "text": requirements[identifier]}
             for identifier in item["requirements"]
@@ -226,12 +282,13 @@ def build_swarm_plan(task: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("task id must be a non-empty string")
     items = _work_items(payload)
     waves = _waves(items)
+    interview = _confirmed_interview(payload)
     worker_packets = {
         item["id"]: {
             "id": item["id"],
             "role": "bounded_worker",
             "depends_on": item["depends_on"],
-            "context_summary": _context_summary(payload, item),
+            "context_summary": _context_summary(payload, item, interview),
         }
         for item in items
     }
@@ -240,6 +297,7 @@ def build_swarm_plan(task: dict[str, Any]) -> dict[str, Any]:
         "mode": "plan_only",
         "task_id": task_id,
         "milestone": task.get("milestone") or payload.get("milestone"),
+        "interview": interview,
         "coordinator": {
             "role": "coordinator",
             "responsibilities": [

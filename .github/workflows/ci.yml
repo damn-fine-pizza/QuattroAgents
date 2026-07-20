@@ -1,10 +1,9 @@
 name: Quality gates
 
 on:
+  # With main protected for pull-request merges, this runs once after each merge.
   workflow_dispatch:
   push:
-    branches: [main]
-  pull_request:
     branches: [main]
 
 permissions:
@@ -45,7 +44,7 @@ jobs:
       - run: .venv/bin/python -m ruff check .
       - run: .venv/bin/python -m ruff format --check .
       - run: .venv/bin/python -m mypy src
-      - run: .venv/bin/python -m quattroagents validate --json
+      - run: .venv/bin/python -m quattroagents validate --format json
       - run: .venv/bin/python -m build
       - uses: actions/upload-artifact@v4
         with:

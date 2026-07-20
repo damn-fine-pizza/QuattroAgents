@@ -4,13 +4,13 @@ Swarm planning is a 0.2 dogfooding aid for bounded local work. It creates determ
 
 ## Brownfield flow
 
-1. Run `qagents analyze --project . --json` to collect repository facts.
-2. Run `qagents interview --project . --format markdown` and collect the user's answers.
-3. Put confirmed intent, constraints and acceptance evidence into a task contract.
+1. Run `qagents analyze --project . --format json` to collect repository facts.
+2. Run `qagents interview --project . --interactive --format markdown` and collect the user's answers.
+3. Copy the confirmed interview record, intent, constraints and acceptance evidence into a task contract.
 4. Add optional `swarm_work_items` when work can be divided safely.
 5. Run `qagents swarm plan TASK-ID --project . --format markdown`.
 
-The interview is mandatory in spirit: source code describes the current system, not the user's desired outcome.
+The interview is mandatory and enforced by `swarm plan`: source code describes the current system, not the user's desired outcome.
 
 ## Work-item shape
 
@@ -22,6 +22,23 @@ The interview is mandatory in spirit: source code describes the current system, 
   "allowed_files": ["README.md"],
   "context_refs": ["docs/communication-protocol.md"],
   "depends_on": []
+}
+```
+
+Every swarm task contract also requires this record from `qagents interview --interactive`:
+
+```json
+{
+  "interview": {
+    "status": "confirmed",
+    "answers": {
+      "INTENT-1": "Desired outcome",
+      "INTENT-2": "Scope and exclusions",
+      "INTENT-3": "Acceptance evidence",
+      "INTENT-4": "Constraints and approvals",
+      "INTENT-5": "Parallel work and review choices"
+    }
+  }
 }
 ```
 

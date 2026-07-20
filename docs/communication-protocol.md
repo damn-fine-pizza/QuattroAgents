@@ -18,7 +18,7 @@ Milestones group tasks; they do not replace task status. Record delivery evidenc
 
 ## Brownfield intent
 
-For an existing repository, run `qagents analyze` before `qagents interview`. Analysis contributes facts only; the interview collects the user's intended outcome, scope, acceptance evidence, constraints and parallelization choices. Copy confirmed answers into the task contract before creating any worker packets. Source code must not be treated as proof of user intent.
+For an existing repository, run `qagents analyze --format json` before `qagents interview --interactive`. Analysis contributes facts only; the interview collects the user's intended outcome, scope, acceptance evidence, constraints and parallelization choices. Copy the `interview.status = "confirmed"` record into the task contract before creating any worker packets. `swarm plan` rejects a task without all confirmed answers. Source code must not be treated as proof of user intent.
 
 ## Swarm work items
 

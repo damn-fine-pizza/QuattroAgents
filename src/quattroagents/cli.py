@@ -20,6 +20,8 @@ from .core.routing import fleet, routing
 from .core.swarm import (
     build_interview_brief,
     build_swarm_plan,
+    conduct_interview,
+    render_confirmed_interview_markdown,
     render_interview_brief_markdown,
     render_swarm_plan_markdown,
 )
@@ -36,6 +38,34 @@ def _emit(value: Any, as_json: bool) -> None:
 def metrics_snapshot() -> dict[str, Any]:
     """Return the stable metrics payload available during 0.2 dogfooding."""
     return {"samples": 0, "primary_metric": "accepted_tasks_per_quota_unit"}
+
+
+def render_analysis_markdown(analysis: dict[str, object]) -> str:
+    """Render deterministic repository facts for a brownfield interview."""
+    languages_value = analysis.get("languages", [])
+    ci_value = analysis.get("ci", [])
+    languages = (
+        ", ".join(languages_value)
+        if isinstance(languages_value, list)
+        and all(isinstance(item, str) for item in languages_value)
+        else "not detected"
+    ) or "not detected"
+    ci = (
+        ", ".join(ci_value)
+        if isinstance(ci_value, list) and all(isinstance(item, str) for item in ci_value)
+        else "not detected"
+    ) or "not detected"
+    return "\n".join(
+        [
+            "# Repository analysis",
+            "",
+            f"- Languages: {languages}",
+            f"- CI: {ci}",
+            f"- Codex adapter: {analysis['codex']}",
+            f"- Claude adapter: {analysis['claude']}",
+            "",
+        ]
+    )
 
 
 def render_metrics_markdown(metrics: dict[str, Any]) -> str:
@@ -132,7 +162,7 @@ def write_hooks(root: Path) -> None:
     for name, body in {
         "pre-commit": (
             "#!/bin/sh\nset -eu\n"
-            ".venv/bin/python -m quattroagents validate --project . --json\n"
+            ".venv/bin/python -m quattroagents validate --project . --format json\n"
             ".venv/bin/python -m ruff check .\n"
         ),
         "commit-msg": (
@@ -145,15 +175,25 @@ def write_hooks(root: Path) -> None:
         ),
         "pre-push": (
             "#!/bin/sh\nset -eu\n"
-            ".venv/bin/python -m quattroagents validate --project . --json\n"
+            ".venv/bin/python -m quattroagents validate --project . --format json\n"
             ".venv/bin/python -m pytest\n"
             ".venv/bin/python -m ruff check .\n"
+            ".venv/bin/python -m ruff format --check .\n"
             ".venv/bin/python -m mypy src\n"
+            ".venv/bin/python -m build\n"
         ),
     }.items():
         path = hooks / name
         path.write_text(body)
         path.chmod(0o755)
+
+
+def enable_project_hooks(root: Path) -> bool:
+    """Activate project-local Git hooks when this is a Git working tree."""
+    if not (root / ".git").exists() or shutil.which("git") is None:
+        return False
+    subprocess.run(["git", "-C", str(root), "config", "core.hooksPath", ".githooks"], check=True)
+    return True
 
 
 def setup(root: Path, providers: list[str], profile: str, yes: bool) -> dict[str, Any]:
@@ -177,7 +217,13 @@ def setup(root: Path, providers: list[str], profile: str, yes: bool) -> dict[str
     initialise_project(root, providers, profile)
     files = render(root, providers)
     write_hooks(root)
-    return {"configured": files, "doctor": doctor(root), "validation": validate(root)}
+    hooks_enabled = enable_project_hooks(root)
+    return {
+        "configured": files,
+        "doctor": doctor(root),
+        "git_hooks_enabled": hooks_enabled,
+        "validation": validate(root),
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -198,7 +244,8 @@ def main(argv: list[str] | None = None) -> int:
     ):
         p = sub.add_parser(name)
         p.add_argument("--project", default=".")
-        p.add_argument("--json", action="store_true")
+        formats = ("json", "markdown") if name == "analyze" else ("json",)
+        p.add_argument("--format", choices=formats, default="json")
         if name == "init":
             p.add_argument("--providers", default="codex,claude")
             p.add_argument("--profile", default="economy")
@@ -209,13 +256,14 @@ def main(argv: list[str] | None = None) -> int:
     interview = sub.add_parser("interview")
     interview.add_argument("--project", default=".")
     interview.add_argument("--format", choices=("json", "markdown"), default="json")
+    interview.add_argument("--interactive", action="store_true")
     p = sub.add_parser("setup")
     p.add_argument("--project", default=".")
     p.add_argument("--providers", default="codex,claude")
     p.add_argument("--profile", default="economy")
     p.add_argument("--install-mcp", default="recommended")
     p.add_argument("--yes", action="store_true")
-    p.add_argument("--json", action="store_true")
+    p.add_argument("--format", choices=("json",), default="json")
     agents = sub.add_parser("agents")
     agents.add_subparsers(dest="agents_command", required=True).add_parser("list").add_argument(
         "--project", default="."
@@ -225,11 +273,11 @@ def main(argv: list[str] | None = None) -> int:
     task_list = ts.add_parser("list")
     task_list.add_argument("--project", default=".")
     task_list.add_argument("--milestone")
-    task_list.add_argument("--json", action="store_true")
+    task_list.add_argument("--format", choices=("json",), default="json")
     show = ts.add_parser("show")
     show.add_argument("task_id")
     show.add_argument("--project", default=".")
-    show.add_argument("--json", action="store_true")
+    show.add_argument("--format", choices=("json",), default="json")
     swarm = sub.add_parser("swarm")
     swarm_plan = swarm.add_subparsers(dest="swarm_command", required=True).add_parser("plan")
     swarm_plan.add_argument("task_id")
@@ -241,10 +289,10 @@ def main(argv: list[str] | None = None) -> int:
     serve_p.add_argument("--project", default=".")
     md = ms.add_parser("doctor")
     md.add_argument("--project", default=".")
-    md.add_argument("--json", action="store_true")
+    md.add_argument("--format", choices=("json",), default="json")
     ml = ms.add_parser("list")
     ml.add_argument("--project", default=".")
-    ml.add_argument("--json", action="store_true")
+    ml.add_argument("--format", choices=("json",), default="json")
     metrics = sub.add_parser("metrics")
     mr = metrics.add_subparsers(dest="metrics_command", required=True)
     report = mr.add_parser("report")
@@ -254,19 +302,28 @@ def main(argv: list[str] | None = None) -> int:
     ss = selfh.add_subparsers(dest="self_command", required=True)
     status = ss.add_parser("status")
     status.add_argument("--project", default=".")
-    status.add_argument("--json", action="store_true")
+    status.add_argument("--format", choices=("json",), default="json")
     args = parser.parse_args(argv)
     root = _root(getattr(args, "project", "."))
-    as_json = getattr(args, "json", False)
+    as_json = getattr(args, "format", None) == "json"
     try:
         out: Any
         if args.command == "init":
             out = initialise_project(root, args.providers.split(","), args.profile)
         elif args.command == "analyze":
-            out = detect(root)
+            analysis = detect(root)
+            out = render_analysis_markdown(analysis) if args.format == "markdown" else analysis
         elif args.command == "interview":
             brief = build_interview_brief(detect(root))
-            out = render_interview_brief_markdown(brief) if args.format == "markdown" else brief
+            record = conduct_interview(brief) if args.interactive else None
+            if args.format == "markdown":
+                out = (
+                    render_confirmed_interview_markdown(record)
+                    if record is not None
+                    else render_interview_brief_markdown(brief)
+                )
+            else:
+                out = record if record is not None else brief
         elif args.command == "doctor":
             out = doctor(root)
         elif args.command == "validate":
