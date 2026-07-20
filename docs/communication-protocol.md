@@ -14,7 +14,7 @@ Each task contract may declare an optional `milestone` using the release identif
 }
 ```
 
-Milestones group tasks; they do not replace task status. Record delivery evidence such as branch, commit and PR in the contract payload or result envelope. Use the package version together with the Git commit to identify the exact self-hosted runtime. In a Git checkout, `qagents --version` and the MCP `serverInfo` report `0.2.2+g<sha12>`; `.dirty` is appended when local source changes are present. Built distributions without Git metadata report the base package version.
+Milestones group tasks; they do not replace task status. Record delivery evidence such as branch, commit and PR in the contract payload or result envelope. Use the package version together with the Git commit to identify the exact self-hosted runtime. In a Git checkout, `qagents --version` and the MCP `serverInfo` report `<package-version>+g<sha12>` (for example `0.5.2+g<sha12>`); `.dirty` is appended when local source changes are present. Built distributions without Git metadata report the base package version.
 
 ## Brownfield intent
 
