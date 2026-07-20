@@ -55,6 +55,18 @@ def test_render_codex_preserves_other_mcp_servers_and_generates_valid_roles(tmp_
     assert "Codex coordinator's assigned packet" in bounded_worker["developer_instructions"]
     assert "result envelope" in bounded_worker["developer_instructions"]
 
+    orchestration_skill = (tmp_path / ".agents/skills/qagents-orchestrate/SKILL.md").read_text()
+    assert "Ask only material questions whose answers are missing" in orchestration_skill
+    assert "continue the QuattroAgents lifecycle autonomously" in orchestration_skill
+    assert "Stop only for a genuine blocker or a human decision" in orchestration_skill
+    assert "task contract and confirmed interview" in orchestration_skill
+    assert "claim tasks and acquire leases before dispatch" in orchestration_skill
+    assert "independent reviewer before completion" in orchestration_skill
+    assert "does not dispatch or wait for agents" in orchestration_skill
+    assert "daemon, generic dispatcher, automatic setup, rendering, or" in orchestration_skill
+    assert "remote service, or LLM runner" in orchestration_skill
+    assert "only a concurrency ceiling" in orchestration_skill
+
 
 def test_render_claude_generates_agents_skills_and_mcp_configuration(tmp_path: Path) -> None:
     render_claude(tmp_path)
@@ -67,3 +79,8 @@ def test_render_claude_generates_agents_skills_and_mcp_configuration(tmp_path: P
     for name in ("bounded-worker", "semantic-reviewer", "architecture-adjudicator"):
         assert f"name: {name}" in (tmp_path / f".claude/agents/{name}.md").read_text()
     assert (tmp_path / ".claude/skills/qagents-review/SKILL.md").exists()
+    orchestration_skill = (tmp_path / ".claude/skills/qagents-orchestrate/SKILL.md").read_text()
+    assert "Ask only material questions whose answers are missing" in orchestration_skill
+    assert "continue the QuattroAgents lifecycle autonomously" in orchestration_skill
+    assert "Use provider-native subagents only" in orchestration_skill
+    assert "QuattroAgents MCP is the control plane only" in orchestration_skill

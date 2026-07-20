@@ -33,7 +33,30 @@ def _write(root: Path, relative: str, text: str) -> None:
 
 
 def _skill(name: str) -> str:
-    return f"---\nname: {name}\ndescription: QuattroAgents {name} workflow\n---\n\nRead .quattroagents/ first. Keep L0/L1 concise; store L2 evidence by reference.\n"
+    header = (
+        f"---\nname: {name}\ndescription: QuattroAgents {name} workflow\n---\n\n"
+        "Read .quattroagents/ first. Keep L0/L1 concise; store L2 evidence by reference.\n"
+    )
+    if name != "qagents-orchestrate":
+        return header
+    return (
+        header + "\nAsk only material questions whose answers are missing from the task, project "
+        "state, or confirmed interview. Once those answers are available, continue the "
+        "QuattroAgents lifecycle autonomously; do not pause for routine status checks or "
+        "permission to perform normal in-scope work. Stop only for a genuine blocker or "
+        "a human decision that materially changes scope, risk, or protected-path approval.\n\n"
+        "Create or validate the task contract and confirmed interview, plan non-overlapping "
+        "work and dependency waves, then claim tasks and acquire leases before dispatch. "
+        "Use provider-native subagents only for useful independent packets. Collect result "
+        "envelopes and evidence, run acceptance gates, record run snapshots, and assign an "
+        "independent reviewer before completion.\n\n"
+        "QuattroAgents MCP is the control plane only for tasks, claims, leases, runs, "
+        "snapshots, artifacts, and evidence; it does not dispatch or wait for agents. Do "
+        "not add or rely on a daemon, generic dispatcher, automatic setup, rendering, or "
+        "configuration, remote service, or LLM runner. `agents.max_threads` is only a "
+        "concurrency ceiling for already selected eligible work; it does not create, select, "
+        "or promise workers.\n"
+    )
 
 
 def _replace_toml_table(existing: str, header: str, replacement: str) -> str:
@@ -87,6 +110,7 @@ def render_codex(root: Path) -> list[str]:
         "qagents-review",
         "qagents-reconfigure",
         "qagents-benchmark",
+        "qagents-orchestrate",
     ):
         _write(root, f".agents/skills/{name}/SKILL.md", _skill(name))
     for name, tier, description, instructions in (
@@ -183,6 +207,7 @@ def render_claude(root: Path) -> list[str]:
         "qagents-review",
         "qagents-reconfigure",
         "qagents-benchmark",
+        "qagents-orchestrate",
     ):
         _write(root, f".claude/skills/{name}/SKILL.md", _skill(name))
     return ["CLAUDE.md", ".claude", ".mcp.json"]

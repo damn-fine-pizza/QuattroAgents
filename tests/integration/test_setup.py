@@ -1,6 +1,7 @@
 import subprocess
 from pathlib import Path
 
+from quattroagents.adapters.registry import render
 from quattroagents.cli import enable_project_hooks, write_hooks
 
 
@@ -34,3 +35,21 @@ def test_enable_project_hooks_configures_only_a_git_repository(tmp_path: Path) -
         text=True,
     )
     assert result.stdout.strip() == ".githooks"
+
+
+def test_orchestration_skill_requires_explicit_provider_render(tmp_path: Path) -> None:
+    already_configured = tmp_path / "already-configured"
+    (already_configured / ".codex").mkdir(parents=True)
+    (already_configured / ".codex/config.toml").write_text("agents.max_threads = 2\n")
+    (already_configured / ".claude").mkdir()
+    (already_configured / ".claude/settings.json").write_text("{}\n")
+    codex_skill = already_configured / ".agents/skills/qagents-orchestrate/SKILL.md"
+    claude_skill = already_configured / ".claude/skills/qagents-orchestrate/SKILL.md"
+
+    assert not codex_skill.exists()
+    assert not claude_skill.exists()
+
+    render(already_configured, ["codex"])
+
+    assert codex_skill.exists()
+    assert not claude_skill.exists()

@@ -17,6 +17,12 @@ For a brownfield task, run `qagents analyze --format json`, then `qagents interv
 
 In the 0.4 Codex coordinator workflow, Codex's native multi-agent tools launch and wait for bounded workers. QuattroAgents MCP separately records task/claim/lease/run/snapshot/artifact/evidence state. A configured `max_threads` is only the coordinator's concurrency ceiling, never an automatic-spawn instruction or a QuattroAgents worker-count promise. See [Codex multi-agent coordination](docs/codex-multi-agent.md).
 
+### Orchestration quickstart
+
+The explicit setup command above generates `qagents-orchestrate` for the selected provider: `.agents/skills/qagents-orchestrate/SKILL.md` for Codex and the provider skill directory for Claude. If the project was configured before this skill existed, rerun setup or use `qagents apply --providers codex` or `qagents apply --providers claude`; installing or upgrading the package alone does not retrofit generated files.
+
+Then ask the agent to start or continue a milestone with QAG. It asks only for material missing answers, records the confirmed interview and contract, then continues autonomously through planning, claim/lease, bounded worker waves, evidence, independent review, gates and snapshots. It pauses only for a genuine blocker or a human decision that materially changes scope, risk, or protected-path approval. It is not a daemon, generic dispatcher, automatic configuration mechanism, remote service, or LLM runner.
+
 ## Optional local tools
 
 Setup safely detects, but never installs or configures, optional `rtk` and `codebase-memory-mcp` executables. Re-run `scripts/detect-rtk.sh` or `scripts/detect-codebase-memory-mcp.sh` at any time; absence is reported and is not an error. `qagents doctor --format json` exposes their availability as `rtk` and `codebase_memory_mcp`.
@@ -34,6 +40,16 @@ Use `.venv/bin/python -m quattroagents metrics report --format markdown` for a d
 ## Canonical state and providers
 
 `.quattroagents/` is authoritative; Codex (`AGENTS.md`, `.codex/`, `.agents/`) and Claude Code (`CLAUDE.md`, `.claude/`, `.mcp.json`) are generated adapters. The core uses abstract `small`, `medium`, `large`, and `long_horizon` tiers rather than commercial model names. `long_horizon` is manual-only.
+
+`qagents-orchestrate` is opt-in generated provider guidance: an explicit setup or
+render of Codex creates `.agents/skills/qagents-orchestrate/SKILL.md`, and an
+explicit setup or render of Claude creates its `.claude/skills/` counterpart.
+It is not retroactively added when QuattroAgents is installed or upgraded in an
+already configured project. Once the material task answers are known, the skill
+continues normal in-scope lifecycle work without routine permission prompts; it
+stops only for a genuine blocker or a human decision that materially changes
+scope, risk, or protected-path approval. It never supplies a daemon, generic
+dispatcher, automatic configuration, remote service, or LLM runner.
 
 The local `quattroagents` MCP is SQLite/WAL-backed and exposes a small task/lease control plane. Task contracts may include a release milestone such as `0.2.0`; query the deterministic mapping with `qagents tasks list --milestone 0.2.0 --format json`. No remote service or secret is needed for baseline operation.
 
