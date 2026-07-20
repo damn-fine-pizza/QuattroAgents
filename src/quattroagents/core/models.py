@@ -18,6 +18,13 @@ class Risk(StrEnum):
     HIGH = "high"
 
 
+class RunStage(StrEnum):
+    PLAN = "plan"
+    EXECUTE = "execute"
+    REVIEW = "review"
+    INTEGRATE = "integrate"
+
+
 @dataclass(frozen=True)
 class TaskContract:
     task_id: str

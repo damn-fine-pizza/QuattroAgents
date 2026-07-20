@@ -7,6 +7,7 @@ from typing import Any
 
 from .. import runtime_version
 from .leases import Leases
+from .runs import RunStore
 from .tasks import ControlPlane
 
 TOOLS = [
@@ -14,6 +15,10 @@ TOOLS = [
     "task_claim",
     "task_update",
     "task_query",
+    "run_create",
+    "run_snapshot",
+    "run_query",
+    "run_verify",
     "artifact_register",
     "lease_acquire",
     "lease_release",
@@ -31,7 +36,7 @@ INPUT_SCHEMA = {"type": "object", "additionalProperties": True}
 
 def serve(root: Path) -> int:
     database = root / ".quattroagents/control-plane.sqlite3"
-    tasks, leases = ControlPlane(database), Leases(str(database))
+    tasks, leases, runs = ControlPlane(database), Leases(str(database)), RunStore(database)
     for raw in sys.stdin:
         try:
             request = json.loads(raw)
@@ -73,6 +78,28 @@ def serve(root: Path) -> int:
                     }
                 elif name == "task_query":
                     out = tasks.query(args.get("task_id"), args.get("milestone"))
+                elif name == "run_create":
+                    out = runs.create(
+                        args["run_id"],
+                        args["task_id"],
+                        args["source_commit"],
+                        args["runtime_version"],
+                    )
+                elif name == "run_snapshot":
+                    out = runs.append_snapshot(
+                        args["run_id"],
+                        args["snapshot_id"],
+                        args["stage"],
+                        args["summary"],
+                        args.get("artifacts", []),
+                        args.get("evidence", []),
+                        args.get("changed_files", []),
+                        args.get("human_approved", False),
+                    )
+                elif name == "run_query":
+                    out = runs.query(args["run_id"])
+                elif name == "run_verify":
+                    out = runs.verify(args["run_id"])
                 elif name == "lease_acquire":
                     out = {
                         "acquired": leases.acquire(

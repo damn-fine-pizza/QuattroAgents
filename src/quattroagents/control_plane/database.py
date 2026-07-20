@@ -16,6 +16,55 @@ def connect(path: Path) -> sqlite3.Connection:
     CREATE TABLE IF NOT EXISTS leases (path TEXT PRIMARY KEY, task_id TEXT NOT NULL, agent TEXT NOT NULL, expires_at REAL NOT NULL);
     CREATE TABLE IF NOT EXISTS artifacts (id TEXT PRIMARY KEY, task_id TEXT NOT NULL, path TEXT NOT NULL, kind TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS decisions (id TEXT PRIMARY KEY, proposal TEXT NOT NULL, status TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS runs (
+        id TEXT PRIMARY KEY,
+        task_id TEXT NOT NULL REFERENCES tasks(id),
+        source_commit TEXT NOT NULL,
+        runtime_version TEXT NOT NULL,
+        created_at REAL NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS run_snapshots (
+        id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL REFERENCES runs(id),
+        sequence INTEGER NOT NULL,
+        stage TEXT NOT NULL CHECK(stage IN ('plan', 'execute', 'review', 'integrate')),
+        payload TEXT NOT NULL,
+        digest TEXT NOT NULL,
+        created_at REAL NOT NULL,
+        UNIQUE(run_id, sequence),
+        UNIQUE(run_id, stage)
+    );
+    CREATE TABLE IF NOT EXISTS run_artifacts (
+        snapshot_id TEXT NOT NULL REFERENCES run_snapshots(id),
+        id TEXT NOT NULL,
+        path TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        sha256 TEXT NOT NULL,
+        PRIMARY KEY(snapshot_id, id)
+    );
+    CREATE TABLE IF NOT EXISTS run_evidence (
+        snapshot_id TEXT NOT NULL REFERENCES run_snapshots(id),
+        id TEXT NOT NULL,
+        ref TEXT NOT NULL,
+        sha256 TEXT NOT NULL,
+        PRIMARY KEY(snapshot_id, id)
+    );
+    CREATE TRIGGER IF NOT EXISTS runs_no_update
+    BEFORE UPDATE ON runs BEGIN SELECT RAISE(ABORT, 'runs are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS runs_no_delete
+    BEFORE DELETE ON runs BEGIN SELECT RAISE(ABORT, 'runs are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS run_snapshots_no_update
+    BEFORE UPDATE ON run_snapshots BEGIN SELECT RAISE(ABORT, 'run snapshots are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS run_snapshots_no_delete
+    BEFORE DELETE ON run_snapshots BEGIN SELECT RAISE(ABORT, 'run snapshots are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS run_artifacts_no_update
+    BEFORE UPDATE ON run_artifacts BEGIN SELECT RAISE(ABORT, 'run artifacts are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS run_artifacts_no_delete
+    BEFORE DELETE ON run_artifacts BEGIN SELECT RAISE(ABORT, 'run artifacts are immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS run_evidence_no_update
+    BEFORE UPDATE ON run_evidence BEGIN SELECT RAISE(ABORT, 'run evidence is immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS run_evidence_no_delete
+    BEFORE DELETE ON run_evidence BEGIN SELECT RAISE(ABORT, 'run evidence is immutable'); END;
     """)
     columns = {str(row["name"]) for row in con.execute("PRAGMA table_info(tasks)")}
     if "milestone" not in columns:

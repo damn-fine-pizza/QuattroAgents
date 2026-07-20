@@ -46,4 +46,6 @@ The planner schedules independent, non-overlapping items in the same wave and po
 
 ## Boundaries
 
-This capability is deliberately below self-hosting: it does not launch subagents, write immutable run snapshots, change routing or gates, activate configuration, or estimate optimization gains. Those capabilities remain outside 0.2.
+This capability is deliberately below self-hosting: it does not launch subagents, write immutable run snapshots, change routing or gates, activate configuration, or estimate optimization gains. In 0.3, an approved self-hosting workflow can record the corresponding immutable run snapshots as `plan → execute → review → integrate`; recording remains separate from dispatch and does not launch a fleet.
+
+The 0.2 interview and bounded-worker controls remain in force. Protected-kernel integration needs explicit human approval. A future, separate milestone may turn repeated deterministic local operations into agent skills, but only benchmark evidence may support a token or execution-time efficiency claim.
