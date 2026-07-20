@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from typing import Any
 
+from quattroagents.core.agent_synthesis import DEFAULT_MANIFEST
 from quattroagents.core.configuration import backup, merge_json
 from quattroagents.core.gates import PROTECTED
 
@@ -32,7 +34,17 @@ def _write(root: Path, relative: str, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
-def _skill(name: str) -> str:
+def _render_skill_body(entry: dict[str, Any]) -> str:
+    if entry.get("body") is not None:
+        return str(entry["body"])
+    return _default_skill_body(entry["name"])
+
+
+def _toml_string(value: str) -> str:
+    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+
+
+def _default_skill_body(name: str) -> str:
     header = (
         f"---\nname: {name}\ndescription: QuattroAgents {name} workflow\n---\n\n"
         "Read .quattroagents/ first. Keep L0/L1 concise; store L2 evidence by reference.\n"
@@ -65,7 +77,8 @@ def _replace_toml_table(existing: str, header: str, replacement: str) -> str:
     return f"{remaining}\n\n{replacement}" if remaining else replacement
 
 
-def render_codex(root: Path) -> list[str]:
+def render_codex(root: Path, manifest: dict[str, Any] | None = None) -> list[str]:
+    manifest = manifest if manifest is not None else DEFAULT_MANIFEST
     _write(
         root,
         "AGENTS.md",
@@ -103,56 +116,22 @@ def render_codex(root: Path) -> list[str]:
             quattroagents_server,
         ),
     )
-    for name in (
-        "qagents-bootstrap",
-        "qagents-plan",
-        "qagents-execute",
-        "qagents-review",
-        "qagents-reconfigure",
-        "qagents-benchmark",
-        "qagents-orchestrate",
-    ):
-        _write(root, f".agents/skills/{name}/SKILL.md", _skill(name))
-    for name, tier, description, instructions in (
-        (
-            "bounded-worker",
-            "small",
-            "Implements explicitly scoped, low-risk changes.",
-            "Work only from the Codex coordinator's assigned packet. Claim and lease the "
-            "assigned contract, implement only that bounded task, preserve unrelated "
-            "changes, and report the packet's result envelope with changed files and "
-            "verification.",
-        ),
-        (
-            "semantic-reviewer",
-            "medium",
-            "Reviews behavioral correctness, compatibility, and test coverage.",
-            "Independently review a final diff and its acceptance evidence for work you "
-            "did not implement. Check behavioral correctness, compatibility, claims and "
-            "lease discipline, and test coverage. Do not modify files; report actionable "
-            "findings with evidence.",
-        ),
-        (
-            "architecture-adjudicator",
-            "large",
-            "Reviews architectural trade-offs and protected-boundary impact.",
-            "Assess architectural trade-offs and protected-boundary impact before "
-            "implementation. Do not modify files; identify recommended decisions and "
-            "approvals required for protected changes.",
-        ),
-    ):
+    for skill in manifest["skills"]:
+        _write(root, f".agents/skills/{skill['name']}/SKILL.md", _render_skill_body(skill))
+    for role in manifest["roles"]:
         _write(
             root,
-            f".codex/agents/{name}.toml",
-            f'name = "{name}"\n'
-            f'description = "{description}"\n'
-            f'model_reasoning_effort = "{_CODEX_REASONING_EFFORT[tier]}"\n'
-            f'developer_instructions = "{instructions}"\n',
+            f".codex/agents/{role['name']}.toml",
+            f'name = "{_toml_string(role["name"])}"\n'
+            f'description = "{_toml_string(role["description"])}"\n'
+            f'model_reasoning_effort = "{_CODEX_REASONING_EFFORT[role["tier"]]}"\n'
+            f'developer_instructions = "{_toml_string(role["instructions"])}"\n',
         )
     return ["AGENTS.md", ".codex/config.toml", ".agents/skills", ".codex/agents"]
 
 
-def render_claude(root: Path) -> list[str]:
+def render_claude(root: Path, manifest: dict[str, Any] | None = None) -> list[str]:
+    manifest = manifest if manifest is not None else DEFAULT_MANIFEST
     _write(
         root,
         "CLAUDE.md",
@@ -190,33 +169,28 @@ def render_claude(root: Path) -> list[str]:
         )
         + "\n",
     )
-    for name, model, turns, effort in (
-        ("bounded-worker", "sonnet", 12, "low"),
-        ("semantic-reviewer", "sonnet", 20, "medium"),
-        ("architecture-adjudicator", "opus", 24, "high"),
-    ):
+    for role in manifest["roles"]:
+        effort = _CODEX_REASONING_EFFORT[role["tier"]]
         _write(
             root,
-            f".claude/agents/{name}.md",
-            f"---\nname: {name}\ndescription: Use for {name.replace('-', ' ')} tasks.\nmodel: {model}\ntools: Read, Edit, Write, Bash\nmaxTurns: {turns}\neffort: {effort}\n---\n\nTier is authoritative in `.quattroagents/fleet.json`. Escalate protected paths: {', '.join(PROTECTED[:2])}.\n",
+            f".claude/agents/{role['name']}.md",
+            f"---\nname: {role['name']}\ndescription: {role['description']}\n"
+            f"model: {role['claude_model']}\ntools: Read, Edit, Write, Bash\n"
+            f"maxTurns: {role['claude_max_turns']}\neffort: {effort}\n---\n\n"
+            f"{role['instructions']}\n\n"
+            f"Tier is authoritative in `.quattroagents/fleet.json`. "
+            f"Escalate protected paths: {', '.join(PROTECTED[:2])}.\n",
         )
-    for name in (
-        "qagents-bootstrap",
-        "qagents-plan",
-        "qagents-execute",
-        "qagents-review",
-        "qagents-reconfigure",
-        "qagents-benchmark",
-        "qagents-orchestrate",
-    ):
-        _write(root, f".claude/skills/{name}/SKILL.md", _skill(name))
+    for skill in manifest["skills"]:
+        _write(root, f".claude/skills/{skill['name']}/SKILL.md", _render_skill_body(skill))
     return ["CLAUDE.md", ".claude", ".mcp.json"]
 
 
-def render(root: Path, providers: list[str]) -> list[str]:
+def render(root: Path, providers: list[str], manifest: dict[str, Any] | None = None) -> list[str]:
+    manifest = manifest if manifest is not None else DEFAULT_MANIFEST
     files: list[str] = []
     if "codex" in providers:
-        files.extend(render_codex(root))
+        files.extend(render_codex(root, manifest))
     if "claude" in providers:
-        files.extend(render_claude(root))
+        files.extend(render_claude(root, manifest))
     return files

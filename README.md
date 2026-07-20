@@ -23,6 +23,16 @@ The explicit setup command above generates `qagents-orchestrate` for the selecte
 
 Then ask the agent to start or continue a milestone with QAG. It asks only for material missing answers, records the confirmed interview and contract, then continues autonomously through planning, claim/lease, bounded worker waves, evidence, independent review, gates and snapshots. It pauses only for a genuine blocker or a human decision that materially changes scope, risk, or protected-path approval. It is not a daemon, generic dispatcher, automatic configuration mechanism, remote service, or LLM runner.
 
+### Data-driven setup
+
+`qagents setup` analyzes the project (`qagents analyze`) and, unless `--yes` is used non-interactively with no prior history, asks a short project-scoped interview before generating agents and skills. The generated roles and skills are tailored from the analysis and confirmed answers rather than a single fixed template.
+
+- `qagents setup ... --yes --interactive` prompts for the project-setup questions (`SETUP-1..3`, plus one per detected language) and blocks on stdin.
+- `qagents setup ... --yes --answers-file answers.json` confirms answers from a JSON file instead of prompting, for scripted or CI customization.
+- `qagents setup ... --yes` alone (no `--interactive`, no `--answers-file`) reuses the previous confirmed interview from `.quattroagents/decisions/setup/` if one exists, or falls back to the same default agents/skills as before if this is the first run.
+
+Every `setup` run appends an analysis/interview/manifest record to `.quattroagents/decisions/setup/`, so a later run can build on that history instead of starting fresh. Re-run `qagents setup --interactive` to answer project-tailored questions and generate customized agents/skills; earlier `setup` runs (from before this history existed) are not retroactively migrated.
+
 ## Optional local tools
 
 Setup safely detects, but never installs or configures, optional `rtk` and `codebase-memory-mcp` executables. Re-run `scripts/detect-rtk.sh` or `scripts/detect-codebase-memory-mcp.sh` at any time; absence is reported and is not an error. `qagents doctor --format json` exposes their availability as `rtk` and `codebase_memory_mcp`.
