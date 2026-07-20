@@ -1,4 +1,18 @@
-from quattroagents.cli import metrics_snapshot, render_metrics_markdown
+from pathlib import Path
+
+from quattroagents.cli import doctor, metrics_snapshot, render_metrics_markdown
+
+
+def test_doctor_reports_optional_tool_availability(monkeypatch) -> None:
+    def which(command: str) -> str | None:
+        return "/opt/tools/" + command if command in {"rtk", "codebase-memory-mcp"} else None
+
+    monkeypatch.setattr("quattroagents.cli.shutil.which", which)
+
+    report = doctor(Path("/project"))
+
+    assert report["rtk"] is True
+    assert report["codebase_memory_mcp"] is True
 
 
 def test_metrics_json_snapshot_remains_compatible() -> None:

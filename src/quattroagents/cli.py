@@ -109,6 +109,8 @@ def doctor(root: Path) -> dict[str, Any]:
         or (root / ".venv/Scripts/python.exe").exists(),
         "codex": shutil.which("codex") is not None,
         "claude": shutil.which("claude") is not None,
+        "rtk": shutil.which("rtk") is not None,
+        "codebase_memory_mcp": shutil.which("codebase-memory-mcp") is not None,
         "state": state_dir(root).exists(),
     }
 

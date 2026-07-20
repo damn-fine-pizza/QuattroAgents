@@ -10,5 +10,7 @@ VENV_PYTHON="$PROJECT_ROOT/.venv/bin/python"
 "$VENV_PYTHON" -m pip install --upgrade pip
 "$VENV_PYTHON" -m pip install -e ".[dev]"
 "$VENV_PYTHON" -m quattroagents setup --project "$PROJECT_ROOT" --providers codex,claude --profile economy --install-mcp recommended --yes
+"$PROJECT_ROOT/scripts/detect-rtk.sh"
+"$PROJECT_ROOT/scripts/detect-codebase-memory-mcp.sh"
 "$VENV_PYTHON" -m quattroagents doctor --project "$PROJECT_ROOT" --json
 "$VENV_PYTHON" -m quattroagents validate --project "$PROJECT_ROOT" --json
