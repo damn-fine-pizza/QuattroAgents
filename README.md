@@ -68,10 +68,12 @@ Configuration generation backs up replaced files below `.quattroagents/backups/`
 ## CI and releases
 
 Quality gates run after each merge to `main` and can also be triggered manually.
-Releases are manual, tag-based workflow dispatches: provide an existing version tag
-that matches the package version (for example, `v0.5.0`) and a numeric build
-identifier. The release workflow verifies the tag is reachable from `main`, runs
-the quality gates, builds distributions, and publishes the release assets.
+Releases are manual, tag-based workflow dispatches: on the "Run workflow" form,
+select an existing version tag from the "Use workflow from" branch/tag picker
+(instead of typing it) and provide a numeric build identifier. The release
+workflow verifies the selected tag matches the package version and is reachable
+from `main`, runs the quality gates, builds distributions, and publishes the
+release assets.
 
 ## Self-hosting roadmap
 
