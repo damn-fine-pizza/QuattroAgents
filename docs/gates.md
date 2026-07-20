@@ -6,6 +6,8 @@ Hard gates protect the central routing, configuration, control-plane, validation
 
 The GitHub Actions workflow makes the following checks required for pull requests to `main`. They are intentionally split so failures are precise while the total run remains short.
 
+Maintainers can also start the complete workflow from the repository **Actions** page: select **Quality gates**, choose **Run workflow**, and select the `main` branch or another branch containing the workflow file.
+
 | Gate | Command or evidence | Purpose |
 | --- | --- | --- |
 | Install smoke | `.venv/bin/python -m pip install .` and `-m quattroagents --help` on Python 3.11 and 3.12 | Verify a clean runtime installation on the supported range. |
