@@ -34,6 +34,13 @@ RESOURCES = [
 INPUT_SCHEMA = {"type": "object", "additionalProperties": True}
 
 
+def _coerce_json(value: Any) -> Any:
+    """Parse JSON-encoded object/array arguments some MCP clients stringify."""
+    if isinstance(value, str):
+        return json.loads(value)
+    return value
+
+
 def serve(root: Path) -> int:
     database = root / ".quattroagents/control-plane.sqlite3"
     tasks, leases, runs = ControlPlane(database), Leases(str(database)), RunStore(database)
@@ -69,7 +76,9 @@ def serve(root: Path) -> int:
                 out: Any
                 if name == "task_create":
                     out = tasks.create(
-                        args["task_id"], args.get("payload", {}), args.get("milestone")
+                        args["task_id"],
+                        _coerce_json(args.get("payload", {})),
+                        args.get("milestone"),
                     )
                 elif name == "task_claim":
                     out = {"claimed": tasks.claim(args["task_id"], args["agent"])}
@@ -92,9 +101,9 @@ def serve(root: Path) -> int:
                         args["snapshot_id"],
                         args["stage"],
                         args["summary"],
-                        args.get("artifacts", []),
-                        args.get("evidence", []),
-                        args.get("changed_files", []),
+                        _coerce_json(args.get("artifacts", [])),
+                        _coerce_json(args.get("evidence", [])),
+                        _coerce_json(args.get("changed_files", [])),
                         args.get("human_approved", False),
                     )
                 elif name == "run_query":

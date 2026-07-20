@@ -123,6 +123,41 @@ def test_mcp_server_persists_and_queries_task_milestones(tmp_path: Path) -> None
     ]
 
 
+def test_mcp_server_accepts_json_encoded_payload_string(tmp_path: Path) -> None:
+    root = Path(__file__).parents[2]
+    request = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+            "name": "task_create",
+            "arguments": {
+                "task_id": "TASK-001",
+                "payload": json.dumps({"milestone": "0.2.0"}),
+            },
+        },
+    }
+
+    result = subprocess.run(
+        [sys.executable, "-m", "quattroagents", "mcp", "serve", "--project", str(tmp_path)],
+        cwd=root,
+        input=f"{json.dumps(request)}\n",
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    response = json.loads(result.stdout)
+    created = json.loads(response["result"]["content"][0]["text"])
+    assert created == {
+        "id": "TASK-001",
+        "payload": {"milestone": "0.2.0"},
+        "milestone": "0.2.0",
+        "status": "ready",
+        "claimant": None,
+    }
+
+
 def test_mcp_server_records_and_verifies_run_snapshots(tmp_path: Path) -> None:
     root = Path(__file__).parents[2]
     requests = "\n".join(
