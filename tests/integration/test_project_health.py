@@ -11,10 +11,10 @@ def _write_fake_python(root: Path) -> Path:
     python.parent.mkdir(parents=True)
     python.write_text(
         "#!/usr/bin/env sh\n"
-        "printf '%s\\n' \"$*\" >> \"$HEALTH_LOG\"\n"
-        "case \"$*\" in\n"
-        "  *doctor*) exit \"${DOCTOR_EXIT:-0}\" ;;\n"
-        "  *validate*) exit \"${VALIDATE_EXIT:-0}\" ;;\n"
+        'printf \'%s\\n\' "$*" >> "$HEALTH_LOG"\n'
+        'case "$*" in\n'
+        '  *doctor*) exit "${DOCTOR_EXIT:-0}" ;;\n'
+        '  *validate*) exit "${VALIDATE_EXIT:-0}" ;;\n'
         "esac\n"
     )
     python.chmod(0o755)
