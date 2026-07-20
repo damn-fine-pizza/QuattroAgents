@@ -17,7 +17,7 @@ The `qagents` console command provides `init`, `analyze`, `interview`, `propose`
 
 Setup safely detects, but never installs or configures, optional `rtk` and `codebase-memory-mcp` executables. Re-run `scripts/detect-rtk.sh` or `scripts/detect-codebase-memory-mcp.sh` at any time; absence is reported and is not an error. `qagents doctor --json` exposes their availability as `rtk` and `codebase_memory_mcp`.
 
-RTK is useful for compact local diagnostics, but it resolves tools from `PATH`. Keep the authoritative project checks on `.venv/bin/python -m pytest`, `.venv/bin/python -m ruff`, and `.venv/bin/python -m mypy` unless the virtualenv tool directory is deliberately on `PATH`.
+Setup installs `pytest`, `ruff`, and `mypy` in the project `.[dev]` virtualenv; it does not require global installations. RTK resolves tools from `PATH`, so use `scripts/rtk.sh ruff check .` (and the analogous `pytest` or `mypy` commands) to expose `.venv/bin` to it. Keep the authoritative project checks on `.venv/bin/python -m pytest`, `.venv/bin/python -m ruff`, and `.venv/bin/python -m mypy`.
 
 ## Metrics report
 
