@@ -12,6 +12,7 @@ from typing import Any
 from . import runtime_identity, runtime_version
 from .adapters import render
 from .control_plane.mcp_server import RESOURCES, TOOLS, serve
+from .control_plane.runs import RunStore
 from .control_plane.tasks import ControlPlane
 from .core.configuration import STATE_FILES, initialise, read_json, state_dir, write_json
 from .core.gates import PROTECTED
@@ -303,6 +304,34 @@ def main(argv: list[str] | None = None) -> int:
     status = ss.add_parser("status")
     status.add_argument("--project", default=".")
     status.add_argument("--format", choices=("json",), default="json")
+    run = ss.add_parser("run")
+    runs = run.add_subparsers(dest="run_command", required=True)
+    run_create = runs.add_parser("create")
+    run_create.add_argument("run_id")
+    run_create.add_argument("task_id")
+    run_create.add_argument("--source-commit", required=True)
+    run_create.add_argument("--runtime-version", required=True)
+    run_create.add_argument("--project", default=".")
+    run_create.add_argument("--format", choices=("json",), default="json")
+    run_snapshot = runs.add_parser("snapshot")
+    run_snapshot.add_argument("run_id")
+    run_snapshot.add_argument("snapshot_id")
+    run_snapshot.add_argument("stage", choices=("plan", "execute", "review", "integrate"))
+    run_snapshot.add_argument("--summary", required=True)
+    run_snapshot.add_argument("--artifacts", default="[]")
+    run_snapshot.add_argument("--evidence", default="[]")
+    run_snapshot.add_argument("--changed-files", default="[]")
+    run_snapshot.add_argument("--human-approved", action="store_true")
+    run_snapshot.add_argument("--project", default=".")
+    run_snapshot.add_argument("--format", choices=("json",), default="json")
+    run_show = runs.add_parser("show")
+    run_show.add_argument("run_id")
+    run_show.add_argument("--project", default=".")
+    run_show.add_argument("--format", choices=("json",), default="json")
+    run_verify = runs.add_parser("verify")
+    run_verify.add_argument("run_id")
+    run_verify.add_argument("--project", default=".")
+    run_verify.add_argument("--format", choices=("json",), default="json")
     args = parser.parse_args(argv)
     root = _root(getattr(args, "project", "."))
     as_json = getattr(args, "format", None) == "json"
@@ -359,18 +388,40 @@ def main(argv: list[str] | None = None) -> int:
                 else metrics_payload
             )
         elif args.command == "self-hosting":
-            checks = {
-                "setup": state_dir(root).exists(),
-                "adapter_codex": (root / ".codex/config.toml").exists(),
-                "adapter_claude": (root / ".mcp.json").exists(),
-                "protected_kernel": (state_dir(root) / "quality-gates.json").exists(),
-                "ci": (root / ".github/workflows/ci.yml").exists(),
-            }
-            out = {
-                "status": "dogfooding" if all(checks.values()) else "disabled",
-                "checks": checks,
-                "note": "0.2 permits only low-risk dogfooding; official self-hosting starts in 0.3.",
-            }
+            if args.self_command == "status":
+                checks = {
+                    "setup": state_dir(root).exists(),
+                    "adapter_codex": (root / ".codex/config.toml").exists(),
+                    "adapter_claude": (root / ".mcp.json").exists(),
+                    "protected_kernel": (state_dir(root) / "quality-gates.json").exists(),
+                    "ci": (root / ".github/workflows/ci.yml").exists(),
+                }
+                out = {
+                    "status": "dogfooding" if all(checks.values()) else "disabled",
+                    "checks": checks,
+                    "note": "0.2 permits only low-risk dogfooding; official self-hosting starts in 0.3.",
+                }
+            else:
+                run_store = RunStore(state_dir(root) / "control-plane.sqlite3")
+                if args.run_command == "create":
+                    out = run_store.create(
+                        args.run_id, args.task_id, args.source_commit, args.runtime_version
+                    )
+                elif args.run_command == "snapshot":
+                    out = run_store.append_snapshot(
+                        args.run_id,
+                        args.snapshot_id,
+                        args.stage,
+                        args.summary,
+                        json.loads(args.artifacts),
+                        json.loads(args.evidence),
+                        json.loads(args.changed_files),
+                        args.human_approved,
+                    )
+                elif args.run_command == "show":
+                    out = run_store.query(args.run_id)
+                else:
+                    out = run_store.verify(args.run_id)
         else:
             out = {
                 "command": args.command,

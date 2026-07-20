@@ -27,7 +27,7 @@ QuattroAgents exposes its local task and metrics control plane as a stdio MCP se
 
 ## Metrics report
 
-Use `.venv/bin/python -m quattroagents metrics report --format markdown` for a deterministic, human-readable benchmark summary. During 0.2, no execution samples are persisted, so the report explicitly shows zero values and does not infer savings or outcomes. The default JSON format remains available for machine consumers.
+Use `.venv/bin/python -m quattroagents metrics report --format markdown` for a deterministic, human-readable benchmark summary. It reports recorded benchmark evidence only: QuattroAgents does not infer savings, speedups, or outcomes from plans or snapshots. The default JSON format remains available for machine consumers.
 
 ## Canonical state and providers
 
@@ -42,8 +42,8 @@ Configuration generation backs up replaced files below `.quattroagents/backups/`
 ## Self-hosting roadmap
 
 - **0.2: dogfooding** — low-risk local tasks only; user-intent interviews and swarm plans are local, deterministic and plan-only.
-- **0.3: self-hosting** — planned stable workflow and immutable run snapshots.
+- **0.3: self-hosting** — an explicit `plan → execute → review → integrate` record with immutable, verifiable run snapshots. Recording a run never launches an agent or activates configuration; protected changes require human approval before integration.
 - **0.4: controlled self-configuration proposals** — never automatic activation.
-- **0.5: assisted optimization** — benchmark-backed recommendations.
+- **0.5: local skills and assisted optimization** — evaluate repeatable local scripts as agent skills and make recommendations only from reproducible benchmarks.
 
 See [architecture](docs/architecture.md), [benchmarking](docs/benchmarking.md), [providers](docs/providers.md), [MCP](docs/mcp.md), [swarm planning](docs/swarm.md), [self-hosting](docs/self-hosting.md), and [roadmap](docs/roadmap.md).

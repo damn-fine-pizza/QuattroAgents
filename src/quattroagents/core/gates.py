@@ -35,6 +35,14 @@ def allow_worker(contract: TaskContract, tier: Tier, changed: list[str]) -> tupl
     return True, "allowed"
 
 
+def allow_integration(changed: list[str], human_approved: bool) -> tuple[bool, str]:
+    """Require an explicit human approval before integrating protected changes."""
+    protected = any(any(path.startswith(prefix) for prefix in PROTECTED) for path in changed)
+    if protected and not human_approved:
+        return False, "protected kernel integration requires explicit human approval"
+    return True, "allowed"
+
+
 def path_allowed(root: Path, path: str) -> bool:
     candidate = (root / path).resolve()
     return candidate == root.resolve() or root.resolve() in candidate.parents

@@ -1,6 +1,6 @@
 # Communication protocol
 
-Stable identifiers use `TASK-`, `REQ-`, `DEC-`, `ART-`, `EVD-`, `BLOCK-`, and `FIND-`. Task contracts are versioned JSON. Result envelopes distinguish facts, inferences, assumptions, blockers and confidence; agents pass references rather than source/diff/log dumps.
+Stable identifiers use `TASK-`, `REQ-`, `DEC-`, `ART-`, `EVD-`, `BLOCK-`, `FIND-`, `RUN-` and `SNAP-`. Task contracts are versioned JSON. Result envelopes distinguish facts, inferences, assumptions, blockers and confidence; agents pass references rather than source/diff/log dumps.
 
 ## Milestones
 
@@ -23,3 +23,9 @@ For an existing repository, run `qagents analyze --format json` before `qagents 
 ## Swarm work items
 
 During 0.2, `swarm_work_items` is an optional plan-only part of a task contract. Each work item names an objective, requirements, allowed files, context references and dependencies. The planner can place items in the same wave only when their dependencies are satisfied and their allowed files do not overlap. It emits a reference-only context summary and an independent review stage; it does not launch agents or persist execution snapshots.
+
+## Self-hosting run snapshots
+
+A 0.3 run uses a `RUN-` identifier bound to `task_id`, `source_commit` and `runtime_version`. Each immutable snapshot has a `SNAP-` identifier and appends in the only permitted order: `plan`, `execute`, `review`, then `integrate`. A snapshot carries its stage and sequence, concise summary, changed-file references, artifact records and evidence records. Artifact records contain an ID, path, kind and SHA-256 digest; evidence records contain an ID, reference and SHA-256 digest. The snapshot also contains the preceding digest, producing a verifiable chain.
+
+The protocol carries references and concise summaries, never full transcripts. `integrate` records an approved state; it does not itself merge, push, tag, execute an agent or activate configuration. For protected-kernel paths, its `human_approved` value must be explicitly true and is part of the immutable snapshot.

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from quattroagents.core.configuration import merge_json, safe_path
-from quattroagents.core.gates import allow_worker
+from quattroagents.core.gates import allow_integration, allow_worker
 from quattroagents.core.models import Risk, TaskContract, Tier
 from quattroagents.core.routing import route
 
@@ -24,6 +24,16 @@ def test_small_routing_and_gate() -> None:
 
 def test_protected_rejected_for_small() -> None:
     assert not allow_worker(contract(), Tier.SMALL, ["src/quattroagents/core/routing.py"])[0]
+
+
+def test_protected_integration_requires_explicit_human_approval() -> None:
+    protected = ["src/quattroagents/control_plane/database.py"]
+    assert allow_integration(["docs/guide.md"], False) == (True, "allowed")
+    assert allow_integration(protected, False) == (
+        False,
+        "protected kernel integration requires explicit human approval",
+    )
+    assert allow_integration(protected, True) == (True, "allowed")
 
 
 def test_task_contract_preserves_optional_milestone() -> None:

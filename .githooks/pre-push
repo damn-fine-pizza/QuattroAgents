@@ -6,3 +6,4 @@ set -eu
 .venv/bin/python -m ruff format --check .
 .venv/bin/python -m mypy src
 .venv/bin/python -m build
+.venv/bin/python -m quattroagents metrics report --format markdown
