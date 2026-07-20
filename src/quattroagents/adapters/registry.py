@@ -29,7 +29,7 @@ def render_codex(root: Path) -> list[str]:
     _write(
         root,
         "AGENTS.md",
-        "# QuattroAgents\n\nState lives in `.quattroagents/`. Route by tier, use task contracts, keep L0/L1 concise, and escalate protected-kernel changes. Validate with `python -m quattroagents validate --json`.\n",
+        "# QuattroAgents\n\nState lives in `.quattroagents/`. Route by tier, use task contracts, keep L0/L1 concise, and escalate protected-kernel changes. Validate with `python -m quattroagents validate --format json`.\n",
     )
     config_path = root / ".codex/config.toml"
     existing_config = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
@@ -102,7 +102,7 @@ def render_claude(root: Path) -> list[str]:
             "PreToolUse": [
                 {
                     "matcher": "Edit|Write",
-                    "hooks": [{"type": "command", "command": "qagents validate --json"}],
+                    "hooks": [{"type": "command", "command": "qagents validate --format json"}],
                 }
             ]
         },

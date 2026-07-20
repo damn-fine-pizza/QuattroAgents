@@ -1,6 +1,6 @@
 # QuattroAgents
 
-QuattroAgents configures a small, provider-neutral coding-agent fleet from one canonical local state directory. Its four phases are **Discover**, **Plan**, **Execute**, and **Verify**. Large models decide; bounded small-model work is verified by deterministic gates.
+QuattroAgents configures a small, provider-neutral coding-agent fleet from one canonical local state directory. Its name is a nod to quattro formaggi. Large models decide; bounded small-model work is verified by deterministic gates.
 
 ## Install and quick start
 
@@ -13,9 +13,11 @@ python3 -m venv .venv
 
 The `qagents` console command provides `init`, `analyze`, `interview`, `propose`, `apply`, `setup`, `doctor`, `validate`, `diff`, `rollback`, `reconfigure`, `benchmark`, agent/task views, MCP serving and metrics reporting. Add `--help` to every command.
 
+For a brownfield task, run `qagents analyze --format json`, then `qagents interview --interactive --format markdown` to collect confirmed user intent. Copy the resulting interview record into the task contract, then run `qagents swarm plan TASK-ID`. The planner refuses to create worker packets without that confirmed record. During 0.2 this produces a local, deterministic plan and reference-only worker packets; it never launches agents, records immutable run snapshots, activates configuration, or claims optimization results.
+
 ## Optional local tools
 
-Setup safely detects, but never installs or configures, optional `rtk` and `codebase-memory-mcp` executables. Re-run `scripts/detect-rtk.sh` or `scripts/detect-codebase-memory-mcp.sh` at any time; absence is reported and is not an error. `qagents doctor --json` exposes their availability as `rtk` and `codebase_memory_mcp`.
+Setup safely detects, but never installs or configures, optional `rtk` and `codebase-memory-mcp` executables. Re-run `scripts/detect-rtk.sh` or `scripts/detect-codebase-memory-mcp.sh` at any time; absence is reported and is not an error. `qagents doctor --format json` exposes their availability as `rtk` and `codebase_memory_mcp`.
 
 Setup installs `pytest`, `ruff`, and `mypy` in the project `.[dev]` virtualenv; it does not require global installations. RTK resolves tools from `PATH`, so use `scripts/rtk.sh ruff check .` (and the analogous `pytest` or `mypy` commands) to expose `.venv/bin` to it. Keep the authoritative project checks on `.venv/bin/python -m pytest`, `.venv/bin/python -m ruff`, and `.venv/bin/python -m mypy`.
 
@@ -31,7 +33,7 @@ Use `.venv/bin/python -m quattroagents metrics report --format markdown` for a d
 
 `.quattroagents/` is authoritative; Codex (`AGENTS.md`, `.codex/`, `.agents/`) and Claude Code (`CLAUDE.md`, `.claude/`, `.mcp.json`) are generated adapters. The core uses abstract `small`, `medium`, `large`, and `long_horizon` tiers rather than commercial model names. `long_horizon` is manual-only.
 
-The local `quattroagents` MCP is SQLite/WAL-backed and exposes a small task/lease control plane. Task contracts may include a release milestone such as `0.2.0`; query the deterministic mapping with `qagents tasks list --milestone 0.2.0 --json`. No remote service or secret is needed for baseline operation.
+The local `quattroagents` MCP is SQLite/WAL-backed and exposes a small task/lease control plane. Task contracts may include a release milestone such as `0.2.0`; query the deterministic mapping with `qagents tasks list --milestone 0.2.0 --format json`. No remote service or secret is needed for baseline operation.
 
 ## Safety
 
@@ -39,9 +41,9 @@ Configuration generation backs up replaced files below `.quattroagents/backups/`
 
 ## Self-hosting roadmap
 
-- **0.2: dogfooding** — low-risk local tasks only.
+- **0.2: dogfooding** — low-risk local tasks only; user-intent interviews and swarm plans are local, deterministic and plan-only.
 - **0.3: self-hosting** — planned stable workflow and immutable run snapshots.
 - **0.4: controlled self-configuration proposals** — never automatic activation.
 - **0.5: assisted optimization** — benchmark-backed recommendations.
 
-See [architecture](docs/architecture.md), [benchmarking](docs/benchmarking.md), [providers](docs/providers.md), [MCP](docs/mcp.md), [self-hosting](docs/self-hosting.md), and [roadmap](docs/roadmap.md).
+See [architecture](docs/architecture.md), [benchmarking](docs/benchmarking.md), [providers](docs/providers.md), [MCP](docs/mcp.md), [swarm planning](docs/swarm.md), [self-hosting](docs/self-hosting.md), and [roadmap](docs/roadmap.md).

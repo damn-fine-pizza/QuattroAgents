@@ -18,11 +18,11 @@ pipx --version   # option B
 
 ## Direct `mcp add`
 
-Run these commands from the repository you want QuattroAgents to manage. They store an absolute project path so the server does not depend on a later shell working directory. Use a release tag to select a reproducible version; `v0.2.1` is the first tagged dogfooding release. Replace it with a later tag or a commit SHA when required.
+Run these commands from the repository you want QuattroAgents to manage. They store an absolute project path so the server does not depend on a later shell working directory. Use a published release tag to select a reproducible version; replace `v0.2.2` with a later tag or a commit SHA when required.
 
 ```sh
 QA_ROOT=$(pwd)
-QA_REF="v0.2.1"
+QA_REF="v0.2.2"
 QA_SOURCE="git+https://github.com/damn-fine-pizza/QuattroAgents.git@$QA_REF"
 ```
 
@@ -80,7 +80,7 @@ This is the recommended development channel: source edits are available to the n
 .venv/bin/python -m pip install -e ".[dev]"
 ```
 
-Use `.venv/bin/python -m quattroagents doctor --json` and `git rev-parse --short=12 HEAD` together to confirm the package version and source revision. A release tag is a stable channel; the local editable checkout is the latest development channel.
+Use `.venv/bin/python -m quattroagents doctor --format json` and `git rev-parse --short=12 HEAD` together to confirm the package version and source revision. A release tag is a stable channel; the local editable checkout is the latest development channel.
 
 ## Project checkout alternative
 
