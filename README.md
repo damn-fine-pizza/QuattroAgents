@@ -37,6 +37,14 @@ QuattroAgents exposes its local task and metrics control plane as a stdio MCP se
 
 Use `.venv/bin/python -m quattroagents metrics report --format markdown` for a deterministic, human-readable benchmark summary. It reports recorded benchmark evidence only: QuattroAgents does not infer savings, speedups, or outcomes from plans or snapshots. The default JSON format remains available for machine consumers.
 
+## Local project-health observations
+
+Run `scripts/project-health.sh [PROJECT_ROOT]` to emit local `doctor` and
+`validate` JSON. Pair equivalent `baseline` and `assisted` repetitions at the
+same fixed commit and environment; retain raw output and failures for every
+run. The observations are not token, saving, speed, or quality claims. See the
+[paired protocol and limitations](docs/benchmarking.md#project-health-paired-observations).
+
 ## Canonical state and providers
 
 `.quattroagents/` is authoritative; Codex (`AGENTS.md`, `.codex/`, `.agents/`) and Claude Code (`CLAUDE.md`, `.claude/`, `.mcp.json`) are generated adapters. The core uses abstract `small`, `medium`, `large`, and `long_horizon` tiers rather than commercial model names. `long_horizon` is manual-only.
