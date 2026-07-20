@@ -1,21 +1,67 @@
-name: CI
-on: [push, pull_request]
+name: Quality gates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
 jobs:
-  test:
+  install:
+    name: Install smoke (${{ matrix.python }})
+    runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
         python: ['3.11', '3.12']
-    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: {python-version: ${{ matrix.python }}}
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
       - run: python -m venv .venv
-      - run: .venv/bin/python -m pip install -e ".[dev]"
+      - run: .venv/bin/python -m pip install --upgrade pip
+      - run: .venv/bin/python -m pip install .
+      - run: .venv/bin/python -m quattroagents --help
+
+  quality:
+    name: Quality gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: python -m venv .venv
+      - run: .venv/bin/python -m pip install --upgrade pip
+      - run: .venv/bin/python -m pip install ".[dev]"
       - run: .venv/bin/python -m pytest
       - run: .venv/bin/python -m ruff check .
       - run: .venv/bin/python -m ruff format --check .
       - run: .venv/bin/python -m mypy src
+      - run: .venv/bin/python -m quattroagents validate --json
       - run: .venv/bin/python -m build
-      - run: .venv/bin/python -m quattroagents --help
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quattroagents-distributions
+          path: dist/
+          if-no-files-found: error
+
+  providers:
+    name: Provider gates (Codex and Claude)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: python -m venv .venv
+      - run: .venv/bin/python -m pip install --upgrade pip
+      - run: .venv/bin/python -m pip install ".[dev]"
+      - run: .venv/bin/python -m pytest tests/unit/test_adapters.py tests/integration/test_setup.py
