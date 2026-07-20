@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "quattroagents": {
+      "command": "qagents",
+      "args": [
+        "mcp",
+        "serve",
+        "--project",
+        "."
+      ]
+    }
+  }
+}

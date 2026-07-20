@@ -1,0 +1,8 @@
+{
+  "profile": "economy",
+  "providers": [
+    "codex",
+    "claude"
+  ],
+  "schema_version": 1
+}

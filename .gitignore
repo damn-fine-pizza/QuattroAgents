@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+.quattroagents/control-plane.sqlite3
+.quattroagents/control-plane.sqlite3-*
+.quattroagents/backups/
+.quattroagents/runtime/
+.quattroagents/results/
+.quattroagents/evidence/
+.quattroagents/artifacts/
+.quattroagents/metrics/
+.codebase-memory/

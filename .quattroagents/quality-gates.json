@@ -1,0 +1,17 @@
+{
+  "protected_paths": [
+    "src/quattroagents/core/routing.py",
+    "src/quattroagents/core/gates.py",
+    "src/quattroagents/core/configuration.py",
+    "src/quattroagents/control_plane/database.py",
+    "src/quattroagents/control_plane/tasks.py",
+    "src/quattroagents/control_plane/leases.py",
+    "src/quattroagents/validation/",
+    ".quattroagents/model-routing.json",
+    ".quattroagents/quality-gates.json",
+    ".quattroagents/fleet.json"
+  ],
+  "require_human_approval": true,
+  "retry_limit": 1,
+  "schema_version": 1
+}

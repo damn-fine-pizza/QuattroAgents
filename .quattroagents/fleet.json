@@ -1,0 +1,40 @@
+{
+  "agents": [
+    {
+      "enabled": true,
+      "name": "orchestrator",
+      "tier": "medium"
+    },
+    {
+      "enabled": true,
+      "name": "repository-scout",
+      "tier": "small"
+    },
+    {
+      "enabled": true,
+      "name": "bounded-worker",
+      "tier": "small"
+    },
+    {
+      "enabled": true,
+      "name": "test-worker",
+      "tier": "small"
+    },
+    {
+      "enabled": true,
+      "name": "fast-reviewer",
+      "tier": "small"
+    },
+    {
+      "enabled": true,
+      "name": "semantic-reviewer",
+      "tier": "medium"
+    },
+    {
+      "enabled": true,
+      "name": "architecture-adjudicator",
+      "tier": "large"
+    }
+  ],
+  "schema_version": 1
+}

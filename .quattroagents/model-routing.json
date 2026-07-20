@@ -1,0 +1,22 @@
+{
+  "parallelism": [
+    1,
+    2
+  ],
+  "retry_limit": 1,
+  "schema_version": 1,
+  "tiers": {
+    "large": {
+      "manual_only": false
+    },
+    "long_horizon": {
+      "manual_only": true
+    },
+    "medium": {
+      "manual_only": false
+    },
+    "small": {
+      "manual_only": false
+    }
+  }
+}

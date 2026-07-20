@@ -1,0 +1,21 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ['3.11', '3.12']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: ${{ matrix.python }}}
+      - run: python -m venv .venv
+      - run: .venv/bin/python -m pip install -e ".[dev]"
+      - run: .venv/bin/python -m pytest
+      - run: .venv/bin/python -m ruff check .
+      - run: .venv/bin/python -m ruff format --check .
+      - run: .venv/bin/python -m mypy src
+      - run: .venv/bin/python -m build
+      - run: .venv/bin/python -m quattroagents --help
