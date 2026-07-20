@@ -34,6 +34,7 @@ class TaskContract:
     escalate_when: list[str] = field(default_factory=list)
     schema_version: int = 1
     milestone: str | None = None
+    swarm_work_items: list[dict[str, Any]] = field(default_factory=list)
 
     def ready_for_small(self) -> bool:
         return bool(

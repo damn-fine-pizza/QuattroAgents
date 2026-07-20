@@ -17,6 +17,12 @@ from .core.configuration import STATE_FILES, initialise, read_json, state_dir, w
 from .core.gates import PROTECTED
 from .core.project_detection import detect
 from .core.routing import fleet, routing
+from .core.swarm import (
+    build_interview_brief,
+    build_swarm_plan,
+    render_interview_brief_markdown,
+    render_swarm_plan_markdown,
+)
 
 
 def _root(value: str) -> Path:
@@ -181,7 +187,6 @@ def main(argv: list[str] | None = None) -> int:
     for name in (
         "init",
         "analyze",
-        "interview",
         "propose",
         "apply",
         "doctor",
@@ -201,6 +206,9 @@ def main(argv: list[str] | None = None) -> int:
             p.add_argument("--brownfield", action="store_true")
         if name == "apply":
             p.add_argument("--providers", default="codex,claude")
+    interview = sub.add_parser("interview")
+    interview.add_argument("--project", default=".")
+    interview.add_argument("--format", choices=("json", "markdown"), default="json")
     p = sub.add_parser("setup")
     p.add_argument("--project", default=".")
     p.add_argument("--providers", default="codex,claude")
@@ -222,6 +230,11 @@ def main(argv: list[str] | None = None) -> int:
     show.add_argument("task_id")
     show.add_argument("--project", default=".")
     show.add_argument("--json", action="store_true")
+    swarm = sub.add_parser("swarm")
+    swarm_plan = swarm.add_subparsers(dest="swarm_command", required=True).add_parser("plan")
+    swarm_plan.add_argument("task_id")
+    swarm_plan.add_argument("--project", default=".")
+    swarm_plan.add_argument("--format", choices=("json", "markdown"), default="json")
     mcp = sub.add_parser("mcp")
     ms = mcp.add_subparsers(dest="mcp_command", required=True)
     serve_p = ms.add_parser("serve")
@@ -251,6 +264,9 @@ def main(argv: list[str] | None = None) -> int:
             out = initialise_project(root, args.providers.split(","), args.profile)
         elif args.command == "analyze":
             out = detect(root)
+        elif args.command == "interview":
+            brief = build_interview_brief(detect(root))
+            out = render_interview_brief_markdown(brief) if args.format == "markdown" else brief
         elif args.command == "doctor":
             out = doctor(root)
         elif args.command == "validate":
@@ -269,6 +285,11 @@ def main(argv: list[str] | None = None) -> int:
                 if args.tasks_command == "list"
                 else plane.query(args.task_id)
             )
+        elif args.command == "swarm":
+            task = ControlPlane(state_dir(root) / "control-plane.sqlite3").query(args.task_id)
+            assert isinstance(task, dict)
+            plan = build_swarm_plan(task)
+            out = render_swarm_plan_markdown(plan) if args.format == "markdown" else plan
         elif args.command == "mcp" and args.mcp_command == "serve":
             return serve(root)
         elif args.command == "mcp":

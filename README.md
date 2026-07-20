@@ -13,6 +13,8 @@ python3 -m venv .venv
 
 The `qagents` console command provides `init`, `analyze`, `interview`, `propose`, `apply`, `setup`, `doctor`, `validate`, `diff`, `rollback`, `reconfigure`, `benchmark`, agent/task views, MCP serving and metrics reporting. Add `--help` to every command.
 
+For a brownfield task, first run `qagents analyze`, then `qagents interview --format markdown` and collect the user's answers. Only then create the task contract and run `qagents swarm plan TASK-ID`. During 0.2 this produces a local, deterministic plan and reference-only worker packets; it never launches agents, records immutable run snapshots, activates configuration, or claims optimization results.
+
 ## Optional local tools
 
 Setup safely detects, but never installs or configures, optional `rtk` and `codebase-memory-mcp` executables. Re-run `scripts/detect-rtk.sh` or `scripts/detect-codebase-memory-mcp.sh` at any time; absence is reported and is not an error. `qagents doctor --json` exposes their availability as `rtk` and `codebase_memory_mcp`.
@@ -39,9 +41,9 @@ Configuration generation backs up replaced files below `.quattroagents/backups/`
 
 ## Self-hosting roadmap
 
-- **0.2: dogfooding** — low-risk local tasks only.
+- **0.2: dogfooding** — low-risk local tasks only; user-intent interviews and swarm plans are local, deterministic and plan-only.
 - **0.3: self-hosting** — planned stable workflow and immutable run snapshots.
 - **0.4: controlled self-configuration proposals** — never automatic activation.
 - **0.5: assisted optimization** — benchmark-backed recommendations.
 
-See [architecture](docs/architecture.md), [benchmarking](docs/benchmarking.md), [providers](docs/providers.md), [MCP](docs/mcp.md), [self-hosting](docs/self-hosting.md), and [roadmap](docs/roadmap.md).
+See [architecture](docs/architecture.md), [benchmarking](docs/benchmarking.md), [providers](docs/providers.md), [MCP](docs/mcp.md), [swarm planning](docs/swarm.md), [self-hosting](docs/self-hosting.md), and [roadmap](docs/roadmap.md).
