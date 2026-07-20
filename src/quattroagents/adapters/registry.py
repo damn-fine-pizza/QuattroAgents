@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from quattroagents.core.configuration import backup, merge_json
@@ -18,16 +19,36 @@ def _skill(name: str) -> str:
     return f"---\nname: {name}\ndescription: QuattroAgents {name} workflow\n---\n\nRead .quattroagents/ first. Keep L0/L1 concise; store L2 evidence by reference.\n"
 
 
+def _replace_toml_table(existing: str, header: str, replacement: str) -> str:
+    pattern = rf"(?ms)^{re.escape(header)}\n.*?(?=^\[|\Z)"
+    remaining = re.sub(pattern, "", existing).strip()
+    return f"{remaining}\n\n{replacement}" if remaining else replacement
+
+
 def render_codex(root: Path) -> list[str]:
     _write(
         root,
         "AGENTS.md",
         "# QuattroAgents\n\nState lives in `.quattroagents/`. Route by tier, use task contracts, keep L0/L1 concise, and escalate protected-kernel changes. Validate with `python -m quattroagents validate --json`.\n",
     )
+    config_path = root / ".codex/config.toml"
+    existing_config = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
+    default_config = "agents.max_depth = 1\nagents.max_threads = 3"
+    quattroagents_server = (
+        "[mcp_servers.quattroagents]\n"
+        'command = ".venv/bin/qagents"\n'
+        'args = ["mcp", "serve", "--project", "."]\n'
+        'cwd = "."\n'
+        "startup_timeout_sec = 10\n"
+    )
     _write(
         root,
         ".codex/config.toml",
-        'agents.max_depth = 1\nagents.max_threads = 3\n\n[mcp_servers.quattroagents]\ncommand = "qagents"\nargs = ["mcp", "serve", "--project", "."]\ncwd = "."\nstartup_timeout_sec = 10\n',
+        _replace_toml_table(
+            existing_config or default_config,
+            "[mcp_servers.quattroagents]",
+            quattroagents_server,
+        ),
     )
     for name in (
         "qagents-bootstrap",
@@ -38,15 +59,33 @@ def render_codex(root: Path) -> list[str]:
         "qagents-benchmark",
     ):
         _write(root, f".agents/skills/{name}/SKILL.md", _skill(name))
-    for name, tier in (
-        ("bounded-worker", "small"),
-        ("semantic-reviewer", "medium"),
-        ("architecture-adjudicator", "large"),
+    for name, tier, description, instructions in (
+        (
+            "bounded-worker",
+            "small",
+            "Implements explicitly scoped, low-risk changes.",
+            "Implement only the assigned task, preserve unrelated changes, and report verification.",
+        ),
+        (
+            "semantic-reviewer",
+            "medium",
+            "Reviews behavioral correctness, compatibility, and test coverage.",
+            "Do not modify files; report actionable findings with evidence.",
+        ),
+        (
+            "architecture-adjudicator",
+            "large",
+            "Reviews architectural trade-offs and protected-boundary impact.",
+            "Do not modify files; identify decisions and approvals required for protected changes.",
+        ),
     ):
         _write(
             root,
             f".codex/agents/{name}.toml",
-            f'name = "{name}"\nmodel_reasoning_effort = "{tier}"\n',
+            f'name = "{name}"\n'
+            f'description = "{description}"\n'
+            f'model_reasoning_effort = "{tier}"\n'
+            f'developer_instructions = "{instructions}"\n',
         )
     return ["AGENTS.md", ".codex/config.toml", ".agents/skills", ".codex/agents"]
 

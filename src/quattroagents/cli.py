@@ -113,6 +113,36 @@ def doctor(root: Path) -> dict[str, Any]:
     }
 
 
+def write_hooks(root: Path) -> None:
+    hooks = root / ".githooks"
+    hooks.mkdir(exist_ok=True)
+    for name, body in {
+        "pre-commit": (
+            "#!/bin/sh\nset -eu\n"
+            ".venv/bin/python -m quattroagents validate --project . --json\n"
+            ".venv/bin/python -m ruff check .\n"
+        ),
+        "commit-msg": (
+            "#!/bin/sh\nset -eu\n"
+            'if [ "${QAGENTS_DISABLE_COMMIT_MSG:-0}" = "1" ]; then exit 0; fi\n'
+            "if ! grep -Eq '^\\[TASK-[0-9]+\\] ' \"$1\"; then\n"
+            '  echo "Commit message must start with [TASK-042] (or set '
+            'QAGENTS_DISABLE_COMMIT_MSG=1)." >&2\n'
+            "  exit 1\nfi\n"
+        ),
+        "pre-push": (
+            "#!/bin/sh\nset -eu\n"
+            ".venv/bin/python -m quattroagents validate --project . --json\n"
+            ".venv/bin/python -m pytest\n"
+            ".venv/bin/python -m ruff check .\n"
+            ".venv/bin/python -m mypy src\n"
+        ),
+    }.items():
+        path = hooks / name
+        path.write_text(body)
+        path.chmod(0o755)
+
+
 def setup(root: Path, providers: list[str], profile: str, yes: bool) -> dict[str, Any]:
     venv = root / ".venv"
     python = venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
@@ -133,16 +163,7 @@ def setup(root: Path, providers: list[str], profile: str, yes: bool) -> dict[str
     subprocess.run([str(python), "-m", "pip", "install", "-e", f"{source_root}[dev]"], check=True)
     initialise_project(root, providers, profile)
     files = render(root, providers)
-    hooks = root / ".githooks"
-    hooks.mkdir(exist_ok=True)
-    for name, body in {
-        "pre-commit": "#!/bin/sh\npython -m quattroagents validate --json\n",
-        "commit-msg": "#!/bin/sh\nexit 0\n",
-        "pre-push": "#!/bin/sh\npython -m quattroagents validate --json\n",
-    }.items():
-        path = hooks / name
-        path.write_text(body)
-        path.chmod(0o755)
+    write_hooks(root)
     return {"configured": files, "doctor": doctor(root), "validation": validate(root)}
 
 
