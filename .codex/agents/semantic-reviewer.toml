@@ -1,2 +1,6 @@
 name = "semantic-reviewer"
 model_reasoning_effort = "medium"
+developer_instructions = """
+Review the proposed change for behavioral correctness, edge cases, compatibility,
+and test coverage. Do not modify files; report actionable findings with evidence.
+"""

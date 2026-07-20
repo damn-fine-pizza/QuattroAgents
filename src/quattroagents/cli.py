@@ -27,6 +27,36 @@ def _emit(value: Any, as_json: bool) -> None:
     print(json.dumps(value, indent=2, sort_keys=True) if as_json else value)
 
 
+def metrics_snapshot() -> dict[str, Any]:
+    """Return the stable metrics payload available during 0.2 dogfooding."""
+    return {"samples": 0, "primary_metric": "accepted_tasks_per_quota_unit"}
+
+
+def render_metrics_markdown(metrics: dict[str, Any]) -> str:
+    """Render a deterministic report without inferring metrics from absent samples."""
+    samples = metrics["samples"]
+    rows = (
+        ("Samples", samples),
+        ("Accepted tasks", 0),
+        ("Retries", 0),
+        ("Escalations", 0),
+        ("Duration", "0 s"),
+        ("Parallelism", 0),
+        ("Repeated reads", 0),
+        (metrics["primary_metric"], 0),
+    )
+    table = "\n".join(f"| {label} | {value} |" for label, value in rows)
+    return (
+        "# QuattroAgents metrics\n\n"
+        "## Summary\n\n"
+        f"No execution samples recorded yet ({samples}). All numeric values are zero; "
+        "no savings or outcomes are inferred.\n\n"
+        "| Metric | Value |\n"
+        "| --- | ---: |\n"
+        f"{table}\n"
+    )
+
+
 def initialise_project(root: Path, providers: list[str], profile: str) -> dict[str, Any]:
     initialise(root, profile, providers)
     state = state_dir(root)
@@ -211,10 +241,11 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "mcp":
             out = {"tools": TOOLS, "resources": RESOURCES, "valid": validate(root)["valid"]}
         elif args.command == "metrics":
+            metrics_payload = metrics_snapshot()
             out = (
-                "# QuattroAgents metrics\n\nNo execution samples recorded yet.\n"
-                if args.metrics_command == "report" and args.format == "markdown"
-                else {"samples": 0, "primary_metric": "accepted_tasks_per_quota_unit"}
+                render_metrics_markdown(metrics_payload)
+                if args.format == "markdown"
+                else metrics_payload
             )
         elif args.command == "self-hosting":
             checks = {

@@ -10,7 +10,7 @@ url = "https://mcp.context7.com/mcp"
 startup_timeout_sec = 10
 
 [mcp_servers.quattroagents]
-command = "qagents"
+command = ".venv/bin/qagents"
 args = ["mcp", "serve", "--project", "."]
 cwd = "."
 startup_timeout_sec = 10

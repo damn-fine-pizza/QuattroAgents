@@ -13,6 +13,10 @@ python3 -m venv .venv
 
 The `qagents` console command provides `init`, `analyze`, `interview`, `propose`, `apply`, `setup`, `doctor`, `validate`, `diff`, `rollback`, `reconfigure`, `benchmark`, agent/task views, MCP serving and metrics reporting. Add `--help` to every command.
 
+## Metrics report
+
+Use `.venv/bin/python -m quattroagents metrics report --format markdown` for a deterministic, human-readable benchmark summary. During 0.2, no execution samples are persisted, so the report explicitly shows zero values and does not infer savings or outcomes. The default JSON format remains available for machine consumers.
+
 ## Canonical state and providers
 
 `.quattroagents/` is authoritative; Codex (`AGENTS.md`, `.codex/`, `.agents/`) and Claude Code (`CLAUDE.md`, `.claude/`, `.mcp.json`) are generated adapters. The core uses abstract `small`, `medium`, `large`, and `long_horizon` tiers rather than commercial model names. `long_horizon` is manual-only.
@@ -30,4 +34,4 @@ Configuration generation backs up replaced files below `.quattroagents/backups/`
 - **0.4: controlled self-configuration proposals** — never automatic activation.
 - **0.5: assisted optimization** — benchmark-backed recommendations.
 
-See [architecture](docs/architecture.md), [providers](docs/providers.md), [MCP](docs/mcp.md), [self-hosting](docs/self-hosting.md), and [roadmap](docs/roadmap.md).
+See [architecture](docs/architecture.md), [benchmarking](docs/benchmarking.md), [providers](docs/providers.md), [MCP](docs/mcp.md), [self-hosting](docs/self-hosting.md), and [roadmap](docs/roadmap.md).
