@@ -1,9 +1,9 @@
-"""QuattroAgents: local-first, provider-neutral coding agent orchestration."""
+"""QuattroAgents: a Project Agent Factory for tailored Claude/Codex agents and skills."""
 
 import subprocess
 from pathlib import Path
 
-__version__ = "0.6.1"
+__version__ = "0.7.0"
 
 
 def runtime_identity() -> tuple[str | None, bool]:

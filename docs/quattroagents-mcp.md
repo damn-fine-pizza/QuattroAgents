@@ -18,11 +18,11 @@ pipx --version   # option B
 
 ## Direct `mcp add`
 
-Run these commands from the repository you want QuattroAgents to manage. They store an absolute project path so the server does not depend on a later shell working directory. Use a published release tag to select a reproducible version; replace `v0.6.1` with a later tag or a commit SHA when required.
+Run these commands from the repository you want QuattroAgents to manage. They store an absolute project path so the server does not depend on a later shell working directory. Use a published release tag to select a reproducible version; replace `v0.7.0` with a later tag or a commit SHA when required.
 
 ```sh
 QA_ROOT=$(pwd)
-QA_REF="v0.6.1"
+QA_REF="v0.7.0"
 QA_SOURCE="git+https://github.com/damn-fine-pizza/QuattroAgents.git@$QA_REF"
 ```
 
@@ -74,7 +74,7 @@ command = ".venv/bin/qagents"
 args = ["mcp", "serve"]
 ```
 
-This is the recommended development channel: source edits are available to the next server process without reinstalling QuattroAgents. Restart Codex or Claude after any change to MCP code, tool definitions or the control-plane schema. Reinstall only after changing dependencies, package metadata (including the version), or console entry points:
+This is the recommended development channel: source edits are available to the next server process without reinstalling QuattroAgents. Restart Codex or Claude after any change to MCP code, tool definitions, or persisted state schema. Reinstall only after changing dependencies, package metadata (including the version), or console entry points:
 
 ```sh
 .venv/bin/python -m pip install -e ".[dev]"
