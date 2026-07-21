@@ -20,22 +20,21 @@ from .adapters.codex import render_codex
 from .analysis import detect_changes, scan_repository
 from .domain import (
     AgentDefinition,
-    AgentLifetime,
     Decision,
     DecisionScope,
     DecisionSource,
     DecisionSourceType,
     DecisionStatus,
-    DefinitionSource,
     InterviewSession,
-    Model,
     ProjectProfile,
+    SessionStatus,
     SessionType,
 )
 from .formatting import render_agent_display
 from .generation.agents import select_agents
 from .generation.skills import select_skills
 from .generation.swarm import build_swarm_plan, render_swarm_plan_text
+from .generation.task_synthesis import synthesize_task_agent
 from .interview.conflicts import resolve_conflict
 from .interview.engine import InterviewEngine, RawAnswer
 from .persistence import AgentFactoryStore, GeneratedFileGuard, read_json, write_json
@@ -232,24 +231,43 @@ def tool_setup(args: dict[str, Any]) -> Any:
 
 
 def tool_prepare_task(args: dict[str, Any]) -> Any:
+    """Synthesize an ad-hoc task agent from a confirmed task_preparation interview.
+
+    Requires `session_id` to reference a CONFIRMED session of type
+    `task_preparation` (see `start_project_interview` with
+    `session_type=task_preparation`, `goal`, and optionally
+    `base_agent_ids`) — the proposal must be grounded in answers about
+    scope, outcome, and permissions, not just the raw goal string. Both a
+    human and a self-interviewing Claude answer through the same
+    start/get_next_questions/submit_interview_answers/confirm flow.
+    """
     store = _store(args)
     task_id = args["task_id"]
     goal = args["goal"]
+    session = _require_session(store, args["session_id"])
+    if session.type != SessionType.TASK_PREPARATION:
+        raise ValueError(
+            f"session '{session.id}' is a {session.type.value} session, not task_preparation"
+        )
+    if session.status != SessionStatus.CONFIRMED:
+        raise ValueError(
+            f"session '{session.id}' is not confirmed yet (status={session.status.value}); "
+            "answer its questions and call confirm_interview_decisions first"
+        )
+
     base_agent_ids = _coerce_json(args.get("base_agent_ids", []))
     agents_by_id = {a.id: a for a in _generated_agents(store)}
-    selected = [agents_by_id[i] for i in base_agent_ids if i in agents_by_id]
-    task_agent = AgentDefinition(
-        id=f"task-{task_id}",
-        description=f"Ad-hoc agent prepared for task '{task_id}': {goal}",
-        scope=goal,
-        lifetime=AgentLifetime.TASK_TEMPORARY,
-        source=DefinitionSource.TASK_TEMPORARY,
-        preferred_model=Model.SONNET,
-        completion_criteria=["requested behavior for this task is covered"],
-    )
+    reused = [agents_by_id[i] for i in base_agent_ids if i in agents_by_id]
+
+    session_decisions = [
+        d
+        for d in store.list_decisions(status=DecisionStatus.ACTIVE)
+        if d.source.interview_session == session.id
+    ]
+    task_agent = synthesize_task_agent(task_id, goal, session_decisions, reused)
     return {
         "task_agent": task_agent.to_dict(),
-        "reused_agents": [a.to_dict() for a in selected],
+        "reused_agents": [a.to_dict() for a in reused],
         "display": render_agent_display(task_agent),
     }
 
@@ -312,7 +330,13 @@ def tool_start_project_interview(args: dict[str, Any]) -> Any:
     profile = _require_profile(store, root)
     engine = InterviewEngine(store)
     session_type = SessionType(args.get("session_type", "initial_setup"))
-    session = engine.start_session(session_type, profile, session_id=args["session_id"])
+    session = engine.start_session(
+        session_type,
+        profile,
+        session_id=args["session_id"],
+        goal=args.get("goal"),
+        base_agent_ids=_coerce_json(args.get("base_agent_ids", [])),
+    )
     return {"session": session.to_dict()}
 
 
@@ -334,15 +358,22 @@ def tool_submit_interview_answers(args: dict[str, Any]) -> Any:
     store = _store(args)
     session = _require_session(store, args["session_id"])
     engine = InterviewEngine(store)
-    raw_answers = [
-        RawAnswer(
-            question_id=a["question_id"],
-            value=a.get("value", ""),
-            free_text=a.get("free_text", ""),
-            repository_contradicts=a.get("repository_contradicts", False),
+    raw_answers = []
+    for a in _coerce_json(args["answers"]):
+        if "value" not in a:
+            raise ValueError(
+                f"answer for question '{a.get('question_id', '?')}' is missing required "
+                f"field 'value' (got keys: {sorted(a.keys())}) — the answer value must be "
+                "submitted under the key 'value', not e.g. 'answer'"
+            )
+        raw_answers.append(
+            RawAnswer(
+                question_id=a["question_id"],
+                value=a["value"],
+                free_text=a.get("free_text", ""),
+                repository_contradicts=a.get("repository_contradicts", False),
+            )
         )
-        for a in _coerce_json(args["answers"])
-    ]
     session, follow_ups = engine.submit_answers(session, raw_answers)
     return {"session": session.to_dict(), "follow_up_questions": [q.to_dict() for q in follow_ups]}
 
@@ -384,8 +415,11 @@ def tool_list_decision_conflicts(args: dict[str, Any]) -> Any:
     return {"conflicts": [c.to_dict() for c in conflicts]}
 
 
+_SUPERSEDE_OTHERS_RESOLUTION = "keep the most recent decision and supersede the others"
+
+
 def tool_resolve_decision_conflict(args: dict[str, Any]) -> Any:
-    from .domain import ConflictRecord
+    from .domain import ConflictRecord, ConflictType
 
     store = _store(args)
     raw = read_json(_conflicts_path(store), [])
@@ -396,7 +430,21 @@ def tool_resolve_decision_conflict(args: dict[str, Any]) -> Any:
     resolved = resolve_conflict(target, args["resolution"])
     conflicts = [resolved if c.id == resolved.id else c for c in conflicts]
     write_json(_conflicts_path(store), [c.to_dict() for c in conflicts])
-    return {"conflict": resolved.to_dict()}
+
+    superseded: list[str] = []
+    if (
+        resolved.type == ConflictType.USER_VS_USER
+        and resolved.resolution == _SUPERSEDE_OTHERS_RESOLUTION
+    ):
+        losing_ids = [entry.split(": ", 1)[0] for entry in resolved.evidence]
+        losers = store.supersede_by_existing(
+            losing_ids,
+            resolved.decision_id,
+            reason=f"superseded by '{resolved.decision_id}' resolving conflict '{resolved.id}'",
+        )
+        superseded = [d.id for d in losers]
+
+    return {"conflict": resolved.to_dict(), "superseded_decisions": superseded}
 
 
 DISPATCH = {

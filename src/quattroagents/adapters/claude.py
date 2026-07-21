@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from ..domain import AgentDefinition, SkillDefinition
+from ..formatting import agent_file_stem
 from ..persistence import GeneratedFileGuard, WriteResult
 
 
@@ -18,7 +19,7 @@ def render_claude(
 ) -> list[WriteResult]:
     """Render agents and skills as Claude .claude/ configuration files.
 
-    For each agent, writes `.claude/agents/{agent.id}.md` with YAML frontmatter
+    For each agent, writes `.claude/agents/qag-{agent.id}.md` with YAML frontmatter
     and structured markdown content.
 
     For each skill, writes `.claude/skills/{skill.id}/SKILL.md` with either
@@ -41,7 +42,7 @@ def render_claude(
     # Write agents
     for agent in agents:
         content = _render_agent_markdown(agent)
-        relative_path = f".claude/agents/{agent.id}.md"
+        relative_path = f".claude/agents/{agent_file_stem(agent.id)}.md"
         result = guard.write(relative_path, content)
         results.append(result)
 
@@ -71,7 +72,7 @@ def _render_agent_markdown(agent: AgentDefinition) -> str:
 
     # Frontmatter
     lines.append("---")
-    lines.append(f"name: {agent.id}")
+    lines.append(f"name: {agent_file_stem(agent.id)}")
     lines.append(f"description: {agent.description}")
     lines.append(f"model: {agent.preferred_model.value}")
     lines.append(f"mode: {agent.mode.value}")
@@ -107,6 +108,23 @@ def _render_agent_markdown(agent: AgentDefinition) -> str:
     lines.append(f"- Mandatory: {mandatory}")
     forbidden = ", ".join(agent.forbidden_tools) if agent.forbidden_tools else "none"
     lines.append(f"- Forbidden: {forbidden}")
+    lines.append("")
+
+    # Handoff — read/write these artifacts directly instead of relaying
+    # their content through the orchestrator's context.
+    lines.append("## Handoff")
+    if agent.expected_inputs:
+        lines.append("- Reads:")
+        for item in agent.expected_inputs:
+            lines.append(f"  - {item}")
+    else:
+        lines.append("- Reads: none declared.")
+    if agent.expected_outputs:
+        lines.append("- Produces:")
+        for item in agent.expected_outputs:
+            lines.append(f"  - {item}")
+    else:
+        lines.append("- Produces: none declared.")
     lines.append("")
 
     # Completion criteria

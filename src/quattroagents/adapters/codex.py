@@ -9,6 +9,7 @@ import re
 from pathlib import Path
 
 from quattroagents.domain import AgentDefinition, Model, SkillDefinition
+from quattroagents.formatting import agent_file_stem
 from quattroagents.persistence import GeneratedFileGuard, WriteResult
 
 
@@ -111,7 +112,7 @@ def render_codex(
     """Render Codex adapter files for agents and skills.
 
     Generates:
-    - `.codex/agents/{agent.id}.toml` for each agent
+    - `.codex/agents/qag-{agent.id}.toml` for each agent
     - `.agents/skills/{skill.id}/SKILL.md` for each skill
     - `.codex/config.toml` with MCP server configuration
     - `AGENTS.md` project documentation
@@ -152,6 +153,12 @@ def render_codex(
         if agent.when_not_to_use:
             instructions_parts.append(f"When not to use: {agent.when_not_to_use}")
 
+        if agent.expected_inputs:
+            instructions_parts.append(f"Reads: {'; '.join(agent.expected_inputs)}")
+
+        if agent.expected_outputs:
+            instructions_parts.append(f"Produces: {'; '.join(agent.expected_outputs)}")
+
         if agent.completion_criteria:
             instructions_parts.append(
                 f"Completion criteria: {'; '.join(agent.completion_criteria)}"
@@ -164,13 +171,13 @@ def render_codex(
 
         # Build TOML content
         toml_content = (
-            f'name = "{_toml_string(agent.id)}"\n'
+            f'name = "{_toml_string(agent_file_stem(agent.id))}"\n'
             f'description = "{_toml_string(agent.description)}"\n'
             f'model_reasoning_effort = "{effort}"\n'
             f'developer_instructions = "{_toml_string(instructions)}"\n'
         )
 
-        result = guard.write(f".codex/agents/{agent.id}.toml", toml_content)
+        result = guard.write(f".codex/agents/{agent_file_stem(agent.id)}.toml", toml_content)
         results.append(result)
 
     # Write skill markdown files

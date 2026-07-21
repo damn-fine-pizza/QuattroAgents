@@ -37,7 +37,7 @@ ROLE_LABELS: dict[str, str] = {
     "release-agent": "release",
 }
 
-DEFAULT_ROLE = "boh"
+DEFAULT_ROLE = "generic"
 
 TIER_BY_MODEL: dict[Model, str] = {
     Model.HAIKU: "1",
@@ -47,6 +47,20 @@ TIER_BY_MODEL: dict[Model, str] = {
 }
 
 DEFAULT_TIER = "4"
+
+AGENT_FILE_PREFIX = "qag-"
+
+
+def agent_file_stem(agent_id: str) -> str:
+    """Filesystem/config identity for a generated agent, distinct from its internal id.
+
+    Generated agent files (and the name embedded in them) carry a `qag-`
+    prefix so they're recognizable as QuattroAgents output alongside
+    hand-authored agents in the same directory. `AgentDefinition.id` itself
+    stays unprefixed — it's the stable internal key used for selection rules,
+    decision effects, and swarm references.
+    """
+    return f"{AGENT_FILE_PREFIX}{agent_id}"
 
 
 @dataclass
@@ -203,7 +217,7 @@ def parse_agent_display_line(
 
 def render_agent_display(agent: AgentDefinition) -> str:
     """Render an AgentDefinition as a canonical display line."""
-    role = ROLE_LABELS.get(agent.id, DEFAULT_ROLE)
+    role = ROLE_LABELS.get(agent.archetype_id or agent.id, DEFAULT_ROLE)
     tier = TIER_BY_MODEL.get(agent.preferred_model, DEFAULT_TIER)
     return f"{role} ({tier})"
 

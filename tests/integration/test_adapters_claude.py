@@ -32,7 +32,7 @@ def test_render_claude_writes_agent_and_skill_markdown_files(tmp_path: Path) -> 
     render_claude(tmp_path, [agent], [skill], guard)
 
     # Verify files exist
-    agent_file = tmp_path / ".claude" / "agents" / "test-agent.md"
+    agent_file = tmp_path / ".claude" / "agents" / "qag-test-agent.md"
     skill_file = tmp_path / ".claude" / "skills" / "test-skill" / "SKILL.md"
 
     assert agent_file.exists()
@@ -40,7 +40,7 @@ def test_render_claude_writes_agent_and_skill_markdown_files(tmp_path: Path) -> 
 
     # Verify agent frontmatter
     agent_content = agent_file.read_text()
-    assert "name: test-agent" in agent_content
+    assert "name: qag-test-agent" in agent_content
     assert "description: A test agent" in agent_content
     assert "model: haiku" in agent_content
     assert "mode: read_only" in agent_content
@@ -53,6 +53,44 @@ def test_render_claude_writes_agent_and_skill_markdown_files(tmp_path: Path) -> 
     assert "trigger: on_demand" in skill_content
     assert "1. Step 1" in skill_content
     assert "2. Step 2" in skill_content
+
+
+def test_render_claude_writes_handoff_section_with_inputs_and_outputs(tmp_path: Path) -> None:
+    agent = AgentDefinition(
+        id="test-agent",
+        description="A test agent",
+        completion_criteria=["Criteria 1"],
+        expected_inputs=["repo-map.json: directory tree summary"],
+        expected_outputs=["test-report.json: pass/fail counts"],
+    )
+
+    store = AgentFactoryStore(tmp_path)
+    guard = store.file_guard()
+
+    render_claude(tmp_path, [agent], [], guard)
+
+    agent_content = (tmp_path / ".claude" / "agents" / "qag-test-agent.md").read_text()
+
+    assert "## Handoff" in agent_content
+    assert "- Reads:" in agent_content
+    assert "  - repo-map.json: directory tree summary" in agent_content
+    assert "- Produces:" in agent_content
+    assert "  - test-report.json: pass/fail counts" in agent_content
+
+
+def test_render_claude_writes_handoff_section_with_none_declared(tmp_path: Path) -> None:
+    agent = AgentDefinition(id="test-agent", description="Test", completion_criteria=["C"])
+
+    store = AgentFactoryStore(tmp_path)
+    guard = store.file_guard()
+
+    render_claude(tmp_path, [agent], [], guard)
+
+    agent_content = (tmp_path / ".claude" / "agents" / "qag-test-agent.md").read_text()
+
+    assert "## Handoff" in agent_content
+    assert "- Reads: none declared." in agent_content
+    assert "- Produces: none declared." in agent_content
 
 
 def test_render_claude_writes_settings_json_with_valid_structure(tmp_path: Path) -> None:
@@ -158,7 +196,7 @@ def test_render_claude_idempotent_on_identical_invocations(tmp_path: Path) -> No
     assert all(r.status == "written" for r in results1)
 
     # Verify files are created with correct content
-    agent_file = tmp_path / ".claude" / "agents" / "test-agent.md"
+    agent_file = tmp_path / ".claude" / "agents" / "qag-test-agent.md"
     skill_file = tmp_path / ".claude" / "skills" / "test-skill" / "SKILL.md"
     agent_content_1 = agent_file.read_text()
     skill_content_1 = skill_file.read_text()
@@ -197,7 +235,7 @@ def test_render_claude_detects_conflict_on_manual_edit(tmp_path: Path) -> None:
     # First render
     render_claude(tmp_path, [agent1], [], guard)
 
-    agent_file = tmp_path / ".claude" / "agents" / "test-agent.md"
+    agent_file = tmp_path / ".claude" / "agents" / "qag-test-agent.md"
     original_content = agent_file.read_text()
 
     # Manually edit the file
@@ -221,7 +259,7 @@ def test_render_claude_detects_conflict_on_manual_edit(tmp_path: Path) -> None:
     results = render_claude(tmp_path, [agent2], [], guard2)
 
     # Find the result for the agent file
-    agent_result = next(r for r in results if r.relative_path == ".claude/agents/test-agent.md")
+    agent_result = next(r for r in results if r.relative_path == ".claude/agents/qag-test-agent.md")
 
     # Verify conflict is detected
     assert agent_result.status == "conflict"

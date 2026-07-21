@@ -695,3 +695,38 @@ def test_scan_combined_complex_project(tmp_path: Path) -> None:
     assert "memory" in profile.existing_mcp_servers
     assert "ruff" in profile.coding_conventions
     assert len(profile.tools) == 10
+
+
+def test_duplicate_readme_in_legitimate_project_directories(tmp_path: Path) -> None:
+    """Test that duplicate README.md in src/ and docs/ directories is detected as risk."""
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    (src_dir / "README.md").write_text("# Source README\n")
+
+    docs_dir = tmp_path / "docs"
+    docs_dir.mkdir()
+    (docs_dir / "README.md").write_text("# Documentation README\n")
+
+    profile = scan_repository(tmp_path)
+
+    assert any("readme.md" in risk.lower() for risk in profile.risks)
+
+
+def test_duplicate_readme_excluded_in_build_and_worktree_directories(tmp_path: Path) -> None:
+    """Test that README.md in excluded directories (build-*, worktrees, _deps) is not flagged."""
+    # Root README (legitimate)
+    (tmp_path / "README.md").write_text("# Root README\n")
+
+    # In .claude/worktrees/agent-xyz/ (should be excluded)
+    worktrees_dir = tmp_path / ".claude" / "worktrees" / "agent-abc123"
+    worktrees_dir.mkdir(parents=True)
+    (worktrees_dir / "README.md").write_text("# Worktree README\n")
+
+    # In build-clang-tidy/_deps/googletest-src/ (should be excluded)
+    deps_dir = tmp_path / "build-clang-tidy" / "_deps" / "googletest-src"
+    deps_dir.mkdir(parents=True)
+    (deps_dir / "README.md").write_text("# GoogleTest README\n")
+
+    profile = scan_repository(tmp_path)
+
+    assert not any("readme.md" in risk.lower() for risk in profile.risks)

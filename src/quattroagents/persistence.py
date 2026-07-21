@@ -221,6 +221,34 @@ class AgentFactoryStore:
         self.save_decision(old)
         self.save_decision(new_decision)
 
+    def supersede_by_existing(
+        self, losing_ids: list[str], keeper_id: str, reason: str
+    ) -> list[Decision]:
+        """Mark each losing decision SUPERSEDED by an already-existing keeper decision.
+
+        Unlike `supersede_decision` (which links a brand-new replacement
+        decision to the one it replaces), this is for conflict resolution:
+        several existing decisions lose to another existing one, with no new
+        decision created. `Decision.supersedes` only holds a single id, so it
+        is intentionally left untouched on the keeper — only each loser's
+        `status`/`superseded_by` is set.
+        """
+        now = _utc_now()
+        losers: list[Decision] = []
+        for loser_id in losing_ids:
+            if loser_id == keeper_id:
+                continue
+            loser = self.load_decision(loser_id)
+            if loser is None:
+                continue
+            loser.status = DecisionStatus.SUPERSEDED
+            loser.superseded_by = keeper_id
+            loser.reason = reason
+            loser.updated_at = now
+            self.save_decision(loser)
+            losers.append(loser)
+        return losers
+
     def reopen_decision(self, decision_id: str, reason: str) -> Decision:
         decision = self.load_decision(decision_id)
         if decision is None:

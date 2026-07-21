@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 
 from quattroagents.domain import AgentDefinition, AgentMode, SkillDefinition, SwarmDefinition
 from quattroagents.formatting import AgentDisplayFormatValidator, render_agent_display
+from quattroagents.generation.swarm import find_dependency_cycle
 
 
 @dataclass
@@ -163,44 +164,16 @@ def validate_generated_configuration(
 
     # Check 7: Circular dependency in swarm
     if swarm is not None:
-        # Build adjacency map: agent_id -> list of agents it depends on
         dependencies: dict[str, list[str]] = {}
         for step in swarm.agents:
             dependencies[step.agent_id] = step.depends_on
-
-        # Kahn's algorithm for topological sort
-        in_degree: dict[str, int] = {}
-        adj_list: dict[str, list[str]] = {}
-
-        # Initialize all nodes
-        for agent_id in dependencies:
-            in_degree[agent_id] = 0
-            adj_list[agent_id] = []
-
-        # Build adjacency list and in-degrees
-        for agent_id, deps in dependencies.items():
+        # Dependency targets may reference agents outside the swarm's own
+        # step list (e.g. required reviewers) — include them as nodes too.
+        for deps in dependencies.values():
             for dep in deps:
-                if dep not in adj_list:
-                    adj_list[dep] = []
-                    in_degree[dep] = 0
-                adj_list[dep].append(agent_id)
-                in_degree[agent_id] += 1
+                dependencies.setdefault(dep, [])
 
-        # Process nodes with in-degree 0
-        queue: list[str] = [node for node in in_degree if in_degree[node] == 0]
-        sorted_count = 0
-
-        while queue:
-            node = queue.pop(0)
-            sorted_count += 1
-
-            for neighbor in adj_list[node]:
-                in_degree[neighbor] -= 1
-                if in_degree[neighbor] == 0:
-                    queue.append(neighbor)
-
-        # If we couldn't process all nodes, there's a cycle
-        if sorted_count != len(in_degree):
+        if find_dependency_cycle(set(dependencies), dependencies) is not None:
             violations.append(
                 ConfigViolation(
                     code="swarm_dependency_cycle",
@@ -235,6 +208,38 @@ def validate_generated_configuration(
                     path=agent.id,
                 )
             )
+
+    # Check 10: Circular hand-off in the expected_inputs/expected_outputs
+    # producer/consumer graph. Each entry is "artifact-name: description";
+    # an agent depends on whatever other agent declares that artifact name
+    # as an output. This is the static-generation analogue of a deadlock
+    # check — it catches agent teams whose declared hand-offs can never be
+    # ordered (A waits on an artifact only B produces, and B waits on one
+    # only A produces).
+    def _artifact_name(entry: str) -> str:
+        return entry.split(":", 1)[0].strip()
+
+    producers: dict[str, list[str]] = {}
+    for agent in agents:
+        for entry in agent.expected_outputs:
+            producers.setdefault(_artifact_name(entry), []).append(agent.id)
+
+    handoff_depends_on: dict[str, list[str]] = {agent.id: [] for agent in agents}
+    for agent in agents:
+        for entry in agent.expected_inputs:
+            for producer_id in producers.get(_artifact_name(entry), []):
+                if producer_id != agent.id and producer_id not in handoff_depends_on[agent.id]:
+                    handoff_depends_on[agent.id].append(producer_id)
+
+    cycle = find_dependency_cycle(set(handoff_depends_on), handoff_depends_on)
+    if cycle is not None:
+        violations.append(
+            ConfigViolation(
+                code="agent_handoff_cycle",
+                message=f"agents have a circular hand-off dependency: {', '.join(cycle)}",
+                path=None,
+            )
+        )
 
     return ConfigValidationResult(
         valid=(len(violations) == 0),

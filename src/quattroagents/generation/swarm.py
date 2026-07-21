@@ -37,6 +37,33 @@ def _files_overlap(first: list[str], second: list[str]) -> bool:
     return False
 
 
+def find_dependency_cycle(node_ids: set[str], depends_on: dict[str, list[str]]) -> list[str] | None:
+    """Find a cycle in a dependency graph using Kahn's algorithm.
+
+    Generic dependency-only cycle check (no file-ownership conflict
+    handling — see `_compute_waves` for that). Used both internally and by
+    `validate_generated_configuration` to check the producer/consumer graph
+    derived from agents' `expected_inputs`/`expected_outputs` for circular
+    hand-off loops.
+
+    Returns the sorted list of node ids stuck in a cycle, or None if the
+    graph is acyclic.
+    """
+    completed: set[str] = set()
+    remaining = set(node_ids)
+
+    while remaining:
+        ready = {
+            node_id for node_id in remaining if set(depends_on.get(node_id, [])).issubset(completed)
+        }
+        if not ready:
+            return sorted(remaining)
+        completed.update(ready)
+        remaining -= ready
+
+    return None
+
+
 def _compute_waves(
     agent_ids: set[str],
     depends_on: dict[str, list[str]],

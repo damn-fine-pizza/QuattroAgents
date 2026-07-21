@@ -6,6 +6,7 @@ All gap detection is deterministic with no randomness.
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -44,9 +45,11 @@ def detect_knowledge_gaps(
     # 1. Legacy/duplicate ambiguity
     for index, risk in enumerate(profile.risks):
         if risk.startswith("duplicate implementation name"):
+            name_match = re.search(r"'([^']*)'", risk)
+            duplicate_name = name_match.group(1) if name_match else f"item-{index}"
             gap = KnowledgeGap(
                 id=f"legacy-authority-{index}",
-                topic="legacy/duplicate implementations",
+                topic=f"legacy/duplicate implementations: {duplicate_name}",
                 description=f"Multiple implementations were found: {risk}. Which one should be considered authoritative for new work?",
                 gap_type=GapType.AMBIGUOUS_ARCHITECTURE,
                 evidence=[risk],

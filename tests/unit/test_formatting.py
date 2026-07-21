@@ -1,13 +1,15 @@
 """Unit tests for canonical agent display format parsing and validation.
 
 Format: <role> (<tier>)
-Examples: cartographer (1), dev (2), architect (3), boh (4)
+Examples: cartographer (1), dev (2), architect (3), generic (4)
 """
 
 from quattroagents.domain import AgentDefinition, Model
 from quattroagents.formatting import (
+    AGENT_FILE_PREFIX,
     AgentDisplayFormatValidator,
     AgentFormatConfig,
+    agent_file_stem,
     diagnose_agent_display_line,
     normalize_agent_display_line,
     parse_agent_display_line,
@@ -41,14 +43,14 @@ def test_valid_dev_line() -> None:
     assert result.tier == "2"
 
 
-def test_valid_boh_line() -> None:
-    """Valid display line with default 'boh' role."""
-    line = "boh (4)"
+def test_valid_generic_line() -> None:
+    """Valid display line with default 'generic' role."""
+    line = "generic (4)"
     result = parse_agent_display_line(line)
 
     assert result.valid is True
     assert result.violations == []
-    assert result.role == "boh"
+    assert result.role == "generic"
     assert result.tier == "4"
 
 
@@ -66,7 +68,20 @@ def test_render_agent_display_cartographer() -> None:
     result = parse_agent_display_line(rendered)
     assert result.valid is True
     assert result.role == "cartographer"
-    assert result.tier == "1"
+
+
+def test_render_agent_display_uses_archetype_id_for_tier_suffixed_ids() -> None:
+    """A tier-suffixed id (e.g. 'implementation-agent-haiku') still resolves its role
+    via archetype_id, instead of falling back to the 'generic' default."""
+    agent = AgentDefinition(
+        id="implementation-agent-haiku",
+        archetype_id="implementation-agent",
+        description="Applies a fully-specified, mechanical change.",
+        preferred_model=Model.HAIKU,
+    )
+    rendered = render_agent_display(agent)
+
+    assert rendered == "dev (1)"
 
 
 # ============================================================================
@@ -338,19 +353,19 @@ def test_render_agent_display_inherit() -> None:
     )
     rendered = render_agent_display(agent)
 
-    assert rendered == "boh (4)"
+    assert rendered == "generic (4)"
     result = parse_agent_display_line(rendered)
     assert result.valid is True
     assert result.tier == "4"
 
 
 # ============================================================================
-# Test 9: render_agent_display for unknown agent id -> "boh"
+# Test 9: render_agent_display for unknown agent id -> "generic"
 # ============================================================================
 
 
-def test_render_unknown_agent_id_uses_default_boh() -> None:
-    """Agent id not in ROLE_LABELS renders with default 'boh' role."""
+def test_render_unknown_agent_id_uses_default_generic() -> None:
+    """Agent id not in ROLE_LABELS renders with default 'generic' role."""
     agent = AgentDefinition(
         id="unknown-agent-xyz",
         description="",
@@ -358,10 +373,10 @@ def test_render_unknown_agent_id_uses_default_boh() -> None:
     )
     rendered = render_agent_display(agent)
 
-    assert rendered == "boh (1)"
+    assert rendered == "generic (1)"
     result = parse_agent_display_line(rendered)
     assert result.valid is True
-    assert result.role == "boh"
+    assert result.role == "generic"
 
 
 def test_render_all_known_role_labels() -> None:
@@ -745,3 +760,28 @@ def test_config_with_all_custom_settings() -> None:
     # Invalid: role too long
     result = parse_agent_display_line("a" * 21 + " (1)", config)
     assert result.valid is False
+
+
+# ============================================================================
+# Tests: agent_file_stem
+# ============================================================================
+
+
+def test_agent_file_stem_adds_qag_prefix() -> None:
+    """agent_file_stem adds qag- prefix to agent id."""
+    result = agent_file_stem("project-orchestrator")
+
+    assert result == "qag-project-orchestrator"
+
+
+def test_agent_file_stem_prefix_constant_matches() -> None:
+    """AGENT_FILE_PREFIX constant matches expected value and is used by agent_file_stem."""
+    assert AGENT_FILE_PREFIX == "qag-"
+    assert agent_file_stem("x") == AGENT_FILE_PREFIX + "x"
+
+
+def test_agent_file_stem_preserves_id_structure() -> None:
+    """agent_file_stem preserves internal hyphens in agent id."""
+    result = agent_file_stem("implementation-agent")
+
+    assert result == "qag-implementation-agent"

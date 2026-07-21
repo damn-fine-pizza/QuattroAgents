@@ -35,11 +35,11 @@ def test_render_codex_writes_single_agent_and_skill(tmp_path: Path) -> None:
     assert len(results) == 4
 
     # Check agent TOML was written
-    agent_toml_path = tmp_path / ".codex" / "agents" / "test-agent.toml"
+    agent_toml_path = tmp_path / ".codex" / "agents" / "qag-test-agent.toml"
     assert agent_toml_path.exists()
     agent_toml_content = agent_toml_path.read_text(encoding="utf-8")
     agent_toml = tomllib.loads(agent_toml_content)
-    assert agent_toml["name"] == "test-agent"
+    assert agent_toml["name"] == "qag-test-agent"
     assert agent_toml["description"] == "A test agent"
     assert agent_toml["model_reasoning_effort"] == "low"  # HAIKU maps to "low"
 
@@ -83,25 +83,25 @@ def test_render_codex_model_reasoning_effort_mappings(tmp_path: Path) -> None:
 
     # Check HAIKU -> "low"
     haiku_toml = tomllib.loads(
-        (tmp_path / ".codex" / "agents" / "haiku-agent.toml").read_text(encoding="utf-8")
+        (tmp_path / ".codex" / "agents" / "qag-haiku-agent.toml").read_text(encoding="utf-8")
     )
     assert haiku_toml["model_reasoning_effort"] == "low"
 
     # Check SONNET -> "medium"
     sonnet_toml = tomllib.loads(
-        (tmp_path / ".codex" / "agents" / "sonnet-agent.toml").read_text(encoding="utf-8")
+        (tmp_path / ".codex" / "agents" / "qag-sonnet-agent.toml").read_text(encoding="utf-8")
     )
     assert sonnet_toml["model_reasoning_effort"] == "medium"
 
     # Check OPUS -> "high"
     opus_toml = tomllib.loads(
-        (tmp_path / ".codex" / "agents" / "opus-agent.toml").read_text(encoding="utf-8")
+        (tmp_path / ".codex" / "agents" / "qag-opus-agent.toml").read_text(encoding="utf-8")
     )
     assert opus_toml["model_reasoning_effort"] == "high"
 
     # Check INHERIT -> "medium"
     inherit_toml = tomllib.loads(
-        (tmp_path / ".codex" / "agents" / "inherit-agent.toml").read_text(encoding="utf-8")
+        (tmp_path / ".codex" / "agents" / "qag-inherit-agent.toml").read_text(encoding="utf-8")
     )
     assert inherit_toml["model_reasoning_effort"] == "medium"
 
@@ -119,7 +119,7 @@ def test_render_codex_escapes_special_characters_in_toml(tmp_path: Path) -> None
     guard = store.file_guard()
     render_codex(tmp_path, [agent], [], guard)
 
-    agent_toml_path = tmp_path / ".codex" / "agents" / "special-agent.toml"
+    agent_toml_path = tmp_path / ".codex" / "agents" / "qag-special-agent.toml"
     agent_toml_content = agent_toml_path.read_text(encoding="utf-8")
 
     # Should be able to parse the TOML without errors
@@ -236,7 +236,7 @@ def test_render_codex_regenerate_produces_identical_output(tmp_path: Path) -> No
 
     # First call
     render_codex(tmp_path, [agent], [skill], guard)
-    agent_toml_path = tmp_path / ".codex" / "agents" / "idempotent-agent.toml"
+    agent_toml_path = tmp_path / ".codex" / "agents" / "qag-idempotent-agent.toml"
     skill_md_path = tmp_path / ".agents" / "skills" / "idempotent-skill" / "SKILL.md"
     config_path = tmp_path / ".codex" / "config.toml"
 
@@ -303,7 +303,7 @@ def test_render_codex_agent_fields_in_developer_instructions(tmp_path: Path) -> 
     guard = store.file_guard()
     render_codex(tmp_path, [agent], [], guard)
 
-    agent_toml_path = tmp_path / ".codex" / "agents" / "full-agent.toml"
+    agent_toml_path = tmp_path / ".codex" / "agents" / "qag-full-agent.toml"
     agent_toml = tomllib.loads(agent_toml_path.read_text(encoding="utf-8"))
 
     instructions = agent_toml["developer_instructions"]
@@ -313,6 +313,27 @@ def test_render_codex_agent_fields_in_developer_instructions(tmp_path: Path) -> 
     assert "When Y happens" in instructions
     assert "Criterion 1" in instructions
     assert "Constraint 1" in instructions
+
+
+def test_render_codex_expected_inputs_outputs_in_developer_instructions(tmp_path: Path) -> None:
+    """Test that expected_inputs/expected_outputs are folded into developer_instructions."""
+    agent = AgentDefinition(
+        id="handoff-agent",
+        description="Agent with handoff artifacts",
+        expected_inputs=["repo-map.json: directory tree summary"],
+        expected_outputs=["test-report.json: pass/fail counts"],
+    )
+
+    store = AgentFactoryStore(tmp_path)
+    guard = store.file_guard()
+    render_codex(tmp_path, [agent], [], guard)
+
+    agent_toml_path = tmp_path / ".codex" / "agents" / "qag-handoff-agent.toml"
+    agent_toml = tomllib.loads(agent_toml_path.read_text(encoding="utf-8"))
+
+    instructions = agent_toml["developer_instructions"]
+    assert "Reads: repo-map.json: directory tree summary" in instructions
+    assert "Produces: test-report.json: pass/fail counts" in instructions
 
 
 def test_render_codex_multiple_agents_and_skills(tmp_path: Path) -> None:
@@ -345,8 +366,8 @@ def test_render_codex_multiple_agents_and_skills(tmp_path: Path) -> None:
     assert all(r.status == "written" for r in results)
 
     # Verify both agent files exist
-    assert (tmp_path / ".codex" / "agents" / "agent-1.toml").exists()
-    assert (tmp_path / ".codex" / "agents" / "agent-2.toml").exists()
+    assert (tmp_path / ".codex" / "agents" / "qag-agent-1.toml").exists()
+    assert (tmp_path / ".codex" / "agents" / "qag-agent-2.toml").exists()
 
     # Verify both skill files exist
     assert (tmp_path / ".agents" / "skills" / "skill-1" / "SKILL.md").exists()

@@ -11,7 +11,54 @@ from quattroagents.domain import (
     Model,
     SwarmDefinition,
 )
-from quattroagents.generation.swarm import build_swarm_plan, render_swarm_plan_text
+from quattroagents.generation.swarm import (
+    build_swarm_plan,
+    find_dependency_cycle,
+    render_swarm_plan_text,
+)
+
+
+def test_find_dependency_cycle_acyclic_graph_returns_none() -> None:
+    """An acyclic dependency graph returns None."""
+    nodes = {"a", "b", "c"}
+    depends_on = {"a": [], "b": ["a"], "c": ["b"]}
+
+    assert find_dependency_cycle(nodes, depends_on) is None
+
+
+def test_find_dependency_cycle_direct_cycle_detected() -> None:
+    """A direct A->B->A cycle is detected and both nodes are returned."""
+    nodes = {"a", "b"}
+    depends_on = {"a": ["b"], "b": ["a"]}
+
+    cycle = find_dependency_cycle(nodes, depends_on)
+
+    assert cycle == ["a", "b"]
+
+
+def test_find_dependency_cycle_self_dependency_detected() -> None:
+    """A node depending on itself is detected as a cycle."""
+    nodes = {"a"}
+    depends_on = {"a": ["a"]}
+
+    cycle = find_dependency_cycle(nodes, depends_on)
+
+    assert cycle == ["a"]
+
+
+def test_find_dependency_cycle_longer_cycle_isolated_from_acyclic_nodes() -> None:
+    """A cycle among a subset of nodes is detected, unaffected by unrelated acyclic nodes."""
+    nodes = {"a", "b", "c", "d"}
+    depends_on = {"a": ["b"], "b": ["c"], "c": ["a"], "d": []}
+
+    cycle = find_dependency_cycle(nodes, depends_on)
+
+    assert cycle == ["a", "b", "c"]
+
+
+def test_find_dependency_cycle_empty_graph_returns_none() -> None:
+    """An empty node set returns None."""
+    assert find_dependency_cycle(set(), {}) is None
 
 
 def test_two_independent_agents_same_wave_can_run_parallel() -> None:
@@ -501,8 +548,8 @@ def test_render_swarm_plan_text_uses_render_agent_display() -> None:
     text = render_swarm_plan_text(plan, agents_by_id)
 
     # Should contain the rendered agent line
-    # Format is: <role> (<tier>); "agent-a" has no catalog role, so it's "boh"
-    expected_line = "boh (1)"
+    # Format is: <role> (<tier>); "agent-a" has no catalog role, so it's "generic"
+    expected_line = "generic (1)"
     assert expected_line in text
 
 
