@@ -263,6 +263,9 @@ class AgentDefinition:
     source: DefinitionSource = DefinitionSource.DEFAULT
     constraints: list[str] = field(default_factory=list)
     required_skills: list[str] = field(default_factory=list)
+    archetype_id: str | None = (
+        None  # reference archetype this agent was derived from, e.g. "test-agent"
+    )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -289,6 +292,7 @@ class AgentDefinition:
             "source": _enum_value(self.source),
             "constraints": list(self.constraints),
             "required_skills": list(self.required_skills),
+            "archetype_id": self.archetype_id,
         }
 
     @staticmethod
@@ -318,6 +322,7 @@ class AgentDefinition:
             source=DefinitionSource(data.get("source", DefinitionSource.DEFAULT)),
             constraints=list(data.get("constraints", [])),
             required_skills=list(data.get("required_skills", [])),
+            archetype_id=data.get("archetype_id"),
         )
 
 

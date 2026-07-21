@@ -153,6 +153,12 @@ def render_codex(
         if agent.when_not_to_use:
             instructions_parts.append(f"When not to use: {agent.when_not_to_use}")
 
+        if agent.expected_inputs:
+            instructions_parts.append(f"Reads: {'; '.join(agent.expected_inputs)}")
+
+        if agent.expected_outputs:
+            instructions_parts.append(f"Produces: {'; '.join(agent.expected_outputs)}")
+
         if agent.completion_criteria:
             instructions_parts.append(
                 f"Completion criteria: {'; '.join(agent.completion_criteria)}"

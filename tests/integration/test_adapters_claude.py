@@ -55,6 +55,44 @@ def test_render_claude_writes_agent_and_skill_markdown_files(tmp_path: Path) -> 
     assert "2. Step 2" in skill_content
 
 
+def test_render_claude_writes_handoff_section_with_inputs_and_outputs(tmp_path: Path) -> None:
+    agent = AgentDefinition(
+        id="test-agent",
+        description="A test agent",
+        completion_criteria=["Criteria 1"],
+        expected_inputs=["repo-map.json: directory tree summary"],
+        expected_outputs=["test-report.json: pass/fail counts"],
+    )
+
+    store = AgentFactoryStore(tmp_path)
+    guard = store.file_guard()
+
+    render_claude(tmp_path, [agent], [], guard)
+
+    agent_content = (tmp_path / ".claude" / "agents" / "qag-test-agent.md").read_text()
+
+    assert "## Handoff" in agent_content
+    assert "- Reads:" in agent_content
+    assert "  - repo-map.json: directory tree summary" in agent_content
+    assert "- Produces:" in agent_content
+    assert "  - test-report.json: pass/fail counts" in agent_content
+
+
+def test_render_claude_writes_handoff_section_with_none_declared(tmp_path: Path) -> None:
+    agent = AgentDefinition(id="test-agent", description="Test", completion_criteria=["C"])
+
+    store = AgentFactoryStore(tmp_path)
+    guard = store.file_guard()
+
+    render_claude(tmp_path, [agent], [], guard)
+
+    agent_content = (tmp_path / ".claude" / "agents" / "qag-test-agent.md").read_text()
+
+    assert "## Handoff" in agent_content
+    assert "- Reads: none declared." in agent_content
+    assert "- Produces: none declared." in agent_content
+
+
 def test_render_claude_writes_settings_json_with_valid_structure(tmp_path: Path) -> None:
     agent = AgentDefinition(id="test-agent", description="Test")
 

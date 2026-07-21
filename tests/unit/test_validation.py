@@ -537,6 +537,80 @@ def test_validate_no_tool_check_when_available_tool_ids_is_none() -> None:
     assert result.violations == []
 
 
+def test_validate_agent_handoff_direct_cycle() -> None:
+    """Two agents whose expected_inputs/expected_outputs form a direct cycle trigger a violation."""
+    agents = [
+        AgentDefinition(
+            id="agent-a",
+            description="Agent A",
+            completion_criteria=["Done"],
+            expected_inputs=["artifact-b: produced by agent b"],
+            expected_outputs=["artifact-a: produced by agent a"],
+        ),
+        AgentDefinition(
+            id="agent-b",
+            description="Agent B",
+            completion_criteria=["Done"],
+            expected_inputs=["artifact-a: produced by agent a"],
+            expected_outputs=["artifact-b: produced by agent b"],
+        ),
+    ]
+
+    result = validate_generated_configuration(agents, [])
+
+    assert result.valid is False
+    violation = next(v for v in result.violations if v.code == "agent_handoff_cycle")
+    assert "agent-a" in violation.message
+    assert "agent-b" in violation.message
+
+
+def test_validate_agent_handoff_acyclic_chain_is_valid() -> None:
+    """A linear producer/consumer chain across agents is accepted."""
+    agents = [
+        AgentDefinition(
+            id="agent-a",
+            description="Agent A",
+            completion_criteria=["Done"],
+            expected_outputs=["repo-map.json: directory tree summary"],
+        ),
+        AgentDefinition(
+            id="agent-b",
+            description="Agent B",
+            completion_criteria=["Done"],
+            expected_inputs=["repo-map.json: directory tree summary"],
+            expected_outputs=["test-report.json: pass/fail counts"],
+        ),
+        AgentDefinition(
+            id="agent-c",
+            description="Agent C",
+            completion_criteria=["Done"],
+            expected_inputs=["test-report.json: pass/fail counts"],
+        ),
+    ]
+
+    result = validate_generated_configuration(agents, [])
+
+    assert result.valid is True
+    assert result.violations == []
+
+
+def test_validate_agent_handoff_no_producer_for_input_is_valid() -> None:
+    """An agent declaring an input that no other agent produces is not a cycle violation."""
+    agents = [
+        AgentDefinition(
+            id="agent-a",
+            description="Agent A",
+            completion_criteria=["Done"],
+            expected_inputs=["external-file.json: not produced by any agent"],
+        ),
+    ]
+
+    result = validate_generated_configuration(agents, [])
+
+    assert result.valid is True
+    assert result.violations == []
+
+
 def test_render_validation_report_text_valid() -> None:
     """Rendering a valid result as text returns exact message."""
     result = ConfigValidationResult(valid=True, violations=[])

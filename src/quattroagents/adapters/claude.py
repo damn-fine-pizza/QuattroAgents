@@ -110,6 +110,23 @@ def _render_agent_markdown(agent: AgentDefinition) -> str:
     lines.append(f"- Forbidden: {forbidden}")
     lines.append("")
 
+    # Handoff — read/write these artifacts directly instead of relaying
+    # their content through the orchestrator's context.
+    lines.append("## Handoff")
+    if agent.expected_inputs:
+        lines.append("- Reads:")
+        for item in agent.expected_inputs:
+            lines.append(f"  - {item}")
+    else:
+        lines.append("- Reads: none declared.")
+    if agent.expected_outputs:
+        lines.append("- Produces:")
+        for item in agent.expected_outputs:
+            lines.append(f"  - {item}")
+    else:
+        lines.append("- Produces: none declared.")
+    lines.append("")
+
     # Completion criteria
     lines.append("## Completion criteria")
     for item in agent.completion_criteria:

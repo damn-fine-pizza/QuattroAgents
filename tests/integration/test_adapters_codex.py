@@ -315,6 +315,27 @@ def test_render_codex_agent_fields_in_developer_instructions(tmp_path: Path) -> 
     assert "Constraint 1" in instructions
 
 
+def test_render_codex_expected_inputs_outputs_in_developer_instructions(tmp_path: Path) -> None:
+    """Test that expected_inputs/expected_outputs are folded into developer_instructions."""
+    agent = AgentDefinition(
+        id="handoff-agent",
+        description="Agent with handoff artifacts",
+        expected_inputs=["repo-map.json: directory tree summary"],
+        expected_outputs=["test-report.json: pass/fail counts"],
+    )
+
+    store = AgentFactoryStore(tmp_path)
+    guard = store.file_guard()
+    render_codex(tmp_path, [agent], [], guard)
+
+    agent_toml_path = tmp_path / ".codex" / "agents" / "qag-handoff-agent.toml"
+    agent_toml = tomllib.loads(agent_toml_path.read_text(encoding="utf-8"))
+
+    instructions = agent_toml["developer_instructions"]
+    assert "Reads: repo-map.json: directory tree summary" in instructions
+    assert "Produces: test-report.json: pass/fail counts" in instructions
+
+
 def test_render_codex_multiple_agents_and_skills(tmp_path: Path) -> None:
     """Test render_codex with multiple agents and skills."""
     agents = [
