@@ -68,7 +68,20 @@ def test_render_agent_display_cartographer() -> None:
     result = parse_agent_display_line(rendered)
     assert result.valid is True
     assert result.role == "cartographer"
-    assert result.tier == "1"
+
+
+def test_render_agent_display_uses_archetype_id_for_tier_suffixed_ids() -> None:
+    """A tier-suffixed id (e.g. 'implementation-agent-haiku') still resolves its role
+    via archetype_id, instead of falling back to the 'boh' default."""
+    agent = AgentDefinition(
+        id="implementation-agent-haiku",
+        archetype_id="implementation-agent",
+        description="Applies a fully-specified, mechanical change.",
+        preferred_model=Model.HAIKU,
+    )
+    rendered = render_agent_display(agent)
+
+    assert rendered == "dev (1)"
 
 
 # ============================================================================

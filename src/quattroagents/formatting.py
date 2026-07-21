@@ -217,7 +217,7 @@ def parse_agent_display_line(
 
 def render_agent_display(agent: AgentDefinition) -> str:
     """Render an AgentDefinition as a canonical display line."""
-    role = ROLE_LABELS.get(agent.id, DEFAULT_ROLE)
+    role = ROLE_LABELS.get(agent.archetype_id or agent.id, DEFAULT_ROLE)
     tier = TIER_BY_MODEL.get(agent.preferred_model, DEFAULT_TIER)
     return f"{role} ({tier})"
 
