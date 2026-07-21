@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from ..domain import AgentDefinition, SkillDefinition
-from ..formatting import agent_file_stem
+from ..formatting import agent_display_description, agent_file_stem
 from ..persistence import GeneratedFileGuard, WriteResult
 
 
@@ -73,7 +73,7 @@ def _render_agent_markdown(agent: AgentDefinition) -> str:
     # Frontmatter
     lines.append("---")
     lines.append(f"name: {agent_file_stem(agent.id)}")
-    lines.append(f"description: {agent.description}")
+    lines.append(f"description: {agent_display_description(agent)}")
     lines.append(f"model: {agent.preferred_model.value}")
     lines.append(f"mode: {agent.mode.value}")
     lines.append("---")

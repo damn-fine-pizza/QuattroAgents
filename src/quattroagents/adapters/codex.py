@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 
 from quattroagents.domain import AgentDefinition, Model, SkillDefinition
-from quattroagents.formatting import agent_file_stem
+from quattroagents.formatting import agent_display_description, agent_file_stem
 from quattroagents.persistence import GeneratedFileGuard, WriteResult
 
 
@@ -172,7 +172,7 @@ def render_codex(
         # Build TOML content
         toml_content = (
             f'name = "{_toml_string(agent_file_stem(agent.id))}"\n'
-            f'description = "{_toml_string(agent.description)}"\n'
+            f'description = "{_toml_string(agent_display_description(agent))}"\n'
             f'model_reasoning_effort = "{effort}"\n'
             f'developer_instructions = "{_toml_string(instructions)}"\n'
         )

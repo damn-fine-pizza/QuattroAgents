@@ -41,7 +41,7 @@ def test_render_claude_writes_agent_and_skill_markdown_files(tmp_path: Path) -> 
     # Verify agent frontmatter
     agent_content = agent_file.read_text()
     assert "name: qag-test-agent" in agent_content
-    assert "description: A test agent" in agent_content
+    assert "description: (haiku) A test agent" in agent_content
     assert "model: haiku" in agent_content
     assert "mode: read_only" in agent_content
     assert "- Responsibility 1" in agent_content
@@ -292,6 +292,37 @@ def test_render_claude_writes_global_files_even_with_empty_agents_and_skills(
     # Verify both are valid JSON
     assert json.loads(settings_file.read_text())
     assert json.loads(mcp_file.read_text())
+
+
+def test_render_claude_agent_name_and_description_carry_required_prefixes(tmp_path: Path) -> None:
+    """Rendered `name:`/`description:` always carry the qag-/(model) conventions."""
+    agents = [
+        AgentDefinition(id="haiku-role", description="Bounded work", preferred_model=Model.HAIKU),
+        AgentDefinition(
+            id="sonnet-role", description="Judgment work", preferred_model=Model.SONNET
+        ),
+        AgentDefinition(
+            id="opus-role", description="Orchestration work", preferred_model=Model.OPUS
+        ),
+        AgentDefinition(
+            id="inherit-role", description="Ad-hoc work", preferred_model=Model.INHERIT
+        ),
+    ]
+
+    store = AgentFactoryStore(tmp_path)
+    guard = store.file_guard()
+    render_claude(tmp_path, agents, [], guard)
+
+    for agent, model in zip(agents, ["haiku", "sonnet", "opus", "inherit"], strict=True):
+        content = (tmp_path / ".claude" / "agents" / f"qag-{agent.id}.md").read_text()
+        name_line = next(line for line in content.splitlines() if line.startswith("name:"))
+        description_line = next(
+            line for line in content.splitlines() if line.startswith("description:")
+        )
+        assert name_line == f"name: qag-{agent.id}"
+        assert name_line.split("name: ", 1)[1].startswith("qag-")
+        assert description_line == f"description: ({model}) {agent.description}"
+        assert description_line.split("description: ", 1)[1].startswith(f"({model})")
 
 
 def test_render_claude_uses_skill_body_when_provided(tmp_path: Path) -> None:

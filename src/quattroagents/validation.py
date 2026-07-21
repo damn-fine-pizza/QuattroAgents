@@ -11,7 +11,14 @@ import json
 from dataclasses import dataclass, field
 
 from quattroagents.domain import AgentDefinition, AgentMode, SkillDefinition, SwarmDefinition
-from quattroagents.formatting import AgentDisplayFormatValidator, render_agent_display
+from quattroagents.formatting import (
+    AGENT_FILE_PREFIX,
+    MANUAL_MODEL_TAG_PATTERN,
+    AgentDisplayFormatValidator,
+    agent_display_description,
+    agent_file_stem,
+    render_agent_display,
+)
 from quattroagents.generation.swarm import find_dependency_cycle
 
 
@@ -240,6 +247,67 @@ def validate_generated_configuration(
                 path=None,
             )
         )
+
+    # Check 11: agent name/file `qag-` prefix convention. `AgentDefinition.id`
+    # must stay unprefixed (agent_file_stem adds the prefix only at render
+    # time); an already-prefixed id would double-prefix the rendered name.
+    for agent in agents:
+        if agent.id.startswith(AGENT_FILE_PREFIX):
+            violations.append(
+                ConfigViolation(
+                    code="agent_id_already_prefixed",
+                    message=(
+                        f"agent '{agent.id}' id already starts with "
+                        f"'{AGENT_FILE_PREFIX}'; AgentDefinition.id must stay "
+                        "unprefixed — the prefix is applied only at render time"
+                    ),
+                    path=agent.id,
+                )
+            )
+        rendered_name = agent_file_stem(agent.id)
+        if not rendered_name.startswith(AGENT_FILE_PREFIX):
+            violations.append(
+                ConfigViolation(
+                    code="agent_render_name_missing_prefix",
+                    message=(
+                        f"agent '{agent.id}' rendered name '{rendered_name}' does "
+                        f"not start with required prefix '{AGENT_FILE_PREFIX}'"
+                    ),
+                    path=agent.id,
+                )
+            )
+
+    # Check 12: agent description `(model)` prefix convention. Mirrors Check
+    # 11 for `agent_display_description`: the raw description must stay
+    # untagged (a pre-existing tag would either double-wrap or silently hide
+    # a stale model name), and the rendered description must carry the tag
+    # matching `preferred_model`.
+    for agent in agents:
+        if MANUAL_MODEL_TAG_PATTERN.match(agent.description):
+            violations.append(
+                ConfigViolation(
+                    code="agent_description_has_manual_model_tag",
+                    message=(
+                        f"agent '{agent.id}' description already starts with a "
+                        "parenthesized tag; AgentDefinition.description must stay "
+                        "untagged — the (model) prefix is applied only at render time"
+                    ),
+                    path=agent.id,
+                )
+            )
+        rendered_description = agent_display_description(agent)
+        expected_tag = f"({agent.preferred_model.value})"
+        if not rendered_description.startswith(expected_tag):
+            violations.append(
+                ConfigViolation(
+                    code="agent_render_description_missing_model_tag",
+                    message=(
+                        f"agent '{agent.id}' rendered description does not start "
+                        f"with required tag '{expected_tag}'"
+                    ),
+                    path=agent.id,
+                )
+            )
 
     return ConfigValidationResult(
         valid=(len(violations) == 0),
