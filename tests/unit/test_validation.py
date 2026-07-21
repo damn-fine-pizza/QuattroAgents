@@ -7,6 +7,7 @@ import pytest
 from quattroagents.domain import (
     AgentDefinition,
     AgentMode,
+    Model,
     SkillDefinition,
     SwarmAgentStep,
     SwarmDefinition,
@@ -602,6 +603,80 @@ def test_validate_agent_handoff_no_producer_for_input_is_valid() -> None:
             description="Agent A",
             completion_criteria=["Done"],
             expected_inputs=["external-file.json: not produced by any agent"],
+        ),
+    ]
+
+    result = validate_generated_configuration(agents, [])
+
+    assert result.valid is True
+    assert result.violations == []
+
+
+def test_validate_agent_id_already_prefixed_is_a_violation() -> None:
+    """An agent id that already carries the qag- render prefix triggers a violation."""
+    agents = [
+        AgentDefinition(
+            id="qag-agent-1",
+            description="Agent whose id was mistakenly pre-prefixed",
+            completion_criteria=["Done"],
+        ),
+    ]
+
+    result = validate_generated_configuration(agents, [])
+
+    assert result.valid is False
+    codes = [v.code for v in result.violations]
+    assert "agent_id_already_prefixed" in codes
+    violation = next(v for v in result.violations if v.code == "agent_id_already_prefixed")
+    assert "qag-agent-1" in violation.message
+
+
+def test_validate_agent_id_unprefixed_is_valid() -> None:
+    """A normal, unprefixed agent id does not trigger the prefix check."""
+    agents = [
+        AgentDefinition(
+            id="agent-1",
+            description="Normal agent",
+            completion_criteria=["Done"],
+        ),
+    ]
+
+    result = validate_generated_configuration(agents, [])
+
+    assert result.valid is True
+    assert result.violations == []
+
+
+def test_validate_agent_description_with_manual_model_tag_is_a_violation() -> None:
+    """A description that already carries a hand-authored (word) tag triggers a violation."""
+    agents = [
+        AgentDefinition(
+            id="agent-1",
+            description="(sonnet) Hand-authored description with its own tag",
+            preferred_model=Model.HAIKU,
+            completion_criteria=["Done"],
+        ),
+    ]
+
+    result = validate_generated_configuration(agents, [])
+
+    assert result.valid is False
+    codes = [v.code for v in result.violations]
+    assert "agent_description_has_manual_model_tag" in codes
+    violation = next(
+        v for v in result.violations if v.code == "agent_description_has_manual_model_tag"
+    )
+    assert "agent-1" in violation.message
+
+
+def test_validate_agent_description_untagged_is_valid() -> None:
+    """A normal, untagged description does not trigger the manual-tag check."""
+    agents = [
+        AgentDefinition(
+            id="agent-1",
+            description="Plain description with no tag",
+            preferred_model=Model.SONNET,
+            completion_criteria=["Done"],
         ),
     ]
 

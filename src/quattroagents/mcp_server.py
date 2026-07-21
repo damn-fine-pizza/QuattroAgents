@@ -30,7 +30,7 @@ from .domain import (
     SessionStatus,
     SessionType,
 )
-from .formatting import render_agent_display
+from .formatting import agent_display_description, agent_file_stem, render_agent_display
 from .generation.agents import select_agents
 from .generation.skills import select_skills
 from .generation.swarm import build_swarm_plan, render_swarm_plan_text
@@ -102,6 +102,22 @@ def _generated_agents(store: AgentFactoryStore) -> list[AgentDefinition]:
     if manifest is None:
         return []
     return [AgentDefinition.from_dict(d) for d in manifest.get("agents", [])]
+
+
+def _agent_output_dict(agent: AgentDefinition) -> dict[str, Any]:
+    """Agent JSON for MCP tool responses: raw fields plus what render would produce.
+
+    `to_dict()` stays raw (it also backs manifest persistence, which must
+    round-trip through `agent_display_description`/`agent_file_stem` again
+    at render time rather than store their output). These two extra keys
+    are purely informational, for a human or orchestrator reading tool
+    output to see the same `qag-`/`(model)` tags the rendered files carry.
+    """
+    return {
+        **agent.to_dict(),
+        "rendered_name": agent_file_stem(agent.id),
+        "rendered_description": agent_display_description(agent),
+    }
 
 
 class DryRunFileGuard:
@@ -183,7 +199,7 @@ def tool_reopen_decision(args: dict[str, Any]) -> Any:
 
 def tool_list_agents(args: dict[str, Any]) -> Any:
     store = _store(args)
-    return {"agents": [a.to_dict() for a in _generated_agents(store)]}
+    return {"agents": [_agent_output_dict(a) for a in _generated_agents(store)]}
 
 
 def tool_generate_agents(args: dict[str, Any]) -> Any:
@@ -195,7 +211,7 @@ def tool_generate_agents(args: dict[str, Any]) -> Any:
     manifest = store.load_generated_manifest() or {}
     manifest["agents"] = [a.to_dict() for a in agents]
     store.save_generated_manifest(manifest)
-    return {"agents": [a.to_dict() for a in agents]}
+    return {"agents": [_agent_output_dict(a) for a in agents]}
 
 
 def tool_generate_skills(args: dict[str, Any]) -> Any:
@@ -266,8 +282,8 @@ def tool_prepare_task(args: dict[str, Any]) -> Any:
     ]
     task_agent = synthesize_task_agent(task_id, goal, session_decisions, reused)
     return {
-        "task_agent": task_agent.to_dict(),
-        "reused_agents": [a.to_dict() for a in reused],
+        "task_agent": _agent_output_dict(task_agent),
+        "reused_agents": [_agent_output_dict(a) for a in reused],
         "display": render_agent_display(task_agent),
     }
 

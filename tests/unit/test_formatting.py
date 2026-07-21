@@ -9,6 +9,7 @@ from quattroagents.formatting import (
     AGENT_FILE_PREFIX,
     AgentDisplayFormatValidator,
     AgentFormatConfig,
+    agent_display_description,
     agent_file_stem,
     diagnose_agent_display_line,
     normalize_agent_display_line,
@@ -785,3 +786,48 @@ def test_agent_file_stem_preserves_id_structure() -> None:
     result = agent_file_stem("implementation-agent")
 
     assert result == "qag-implementation-agent"
+
+
+# ============================================================================
+# Tests: agent_display_description
+# ============================================================================
+
+
+def test_agent_display_description_haiku() -> None:
+    """agent_display_description prefixes with (haiku) for Model.HAIKU."""
+    agent = AgentDefinition(id="a", description="Does bounded work.", preferred_model=Model.HAIKU)
+
+    assert agent_display_description(agent) == "(haiku) Does bounded work."
+
+
+def test_agent_display_description_sonnet() -> None:
+    """agent_display_description prefixes with (sonnet) for Model.SONNET."""
+    agent = AgentDefinition(id="a", description="Does judgment work.", preferred_model=Model.SONNET)
+
+    assert agent_display_description(agent) == "(sonnet) Does judgment work."
+
+
+def test_agent_display_description_opus() -> None:
+    """agent_display_description prefixes with (opus) for Model.OPUS."""
+    agent = AgentDefinition(id="a", description="Orchestrates.", preferred_model=Model.OPUS)
+
+    assert agent_display_description(agent) == "(opus) Orchestrates."
+
+
+def test_agent_display_description_inherit() -> None:
+    """agent_display_description prefixes with (inherit) for Model.INHERIT."""
+    agent = AgentDefinition(id="a", description="Ad-hoc task agent.", preferred_model=Model.INHERIT)
+
+    assert agent_display_description(agent) == "(inherit) Ad-hoc task agent."
+
+
+def test_agent_display_description_does_not_double_prefix_existing_tag() -> None:
+    """A description that already starts with a parenthesized tag is left as-is,
+    rather than getting a second (model) tag prepended in front of it."""
+    agent = AgentDefinition(
+        id="a",
+        description="(sonnet) Hand-authored override with its own tag.",
+        preferred_model=Model.HAIKU,
+    )
+
+    assert agent_display_description(agent) == "(sonnet) Hand-authored override with its own tag."

@@ -40,7 +40,7 @@ def test_render_codex_writes_single_agent_and_skill(tmp_path: Path) -> None:
     agent_toml_content = agent_toml_path.read_text(encoding="utf-8")
     agent_toml = tomllib.loads(agent_toml_content)
     assert agent_toml["name"] == "qag-test-agent"
-    assert agent_toml["description"] == "A test agent"
+    assert agent_toml["description"] == "(haiku) A test agent"
     assert agent_toml["model_reasoning_effort"] == "low"  # HAIKU maps to "low"
 
     # Check skill SKILL.md was written
@@ -334,6 +334,35 @@ def test_render_codex_expected_inputs_outputs_in_developer_instructions(tmp_path
     instructions = agent_toml["developer_instructions"]
     assert "Reads: repo-map.json: directory tree summary" in instructions
     assert "Produces: test-report.json: pass/fail counts" in instructions
+
+
+def test_render_codex_agent_name_and_description_carry_required_prefixes(tmp_path: Path) -> None:
+    """Rendered TOML `name`/`description` always carry the qag-/(model) conventions."""
+    agents = [
+        AgentDefinition(id="haiku-role", description="Bounded work", preferred_model=Model.HAIKU),
+        AgentDefinition(
+            id="sonnet-role", description="Judgment work", preferred_model=Model.SONNET
+        ),
+        AgentDefinition(
+            id="opus-role", description="Orchestration work", preferred_model=Model.OPUS
+        ),
+        AgentDefinition(
+            id="inherit-role", description="Ad-hoc work", preferred_model=Model.INHERIT
+        ),
+    ]
+
+    store = AgentFactoryStore(tmp_path)
+    guard = store.file_guard()
+    render_codex(tmp_path, agents, [], guard)
+
+    for agent, model in zip(agents, ["haiku", "sonnet", "opus", "inherit"], strict=True):
+        agent_toml = tomllib.loads(
+            (tmp_path / ".codex" / "agents" / f"qag-{agent.id}.toml").read_text(encoding="utf-8")
+        )
+        assert agent_toml["name"] == f"qag-{agent.id}"
+        assert agent_toml["name"].startswith("qag-")
+        assert agent_toml["description"] == f"({model}) {agent.description}"
+        assert agent_toml["description"].startswith(f"({model})")
 
 
 def test_render_codex_multiple_agents_and_skills(tmp_path: Path) -> None:

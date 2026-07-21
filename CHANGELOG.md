@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.3 — Enforced `qag-` naming and model-tagged descriptions
+
+- Generated agent descriptions are now prefixed at render time with the agent's preferred model in parentheses (e.g. `(haiku) ...`, `(sonnet) ...`), mirroring the existing `qag-` name-prefix convention: `AgentDefinition.description` itself stays untagged so the tag can't go stale, and a new `agent_display_description` helper in `formatting.py` computes it fresh from `preferred_model` for both the Claude and Codex adapters.
+- `qagents validate` gained two new checks enforcing both conventions: a raw `AgentDefinition.id`/`description` must not already carry the `qag-`/`(model)` tag (it's applied only at render time), and the rendered name/description must carry it. Since every generated project already wires `qagents validate` into a `PreToolUse` hook on Edit/Write, this enforces both conventions automatically in every downstream project.
+- `list_agents`, `generate_agents`, and `prepare_task` MCP tool responses now include `rendered_name`/`rendered_description` fields showing the `qag-`/`(model)`-tagged values, without changing what's persisted to `manifest.json`.
+- Known gap: hand-authored overrides under `.agent-factory/overrides/*.json` bypass the `AgentDefinition` pipeline entirely and are not validated against either convention.
+
 ## 0.7.2 — Archetypes, tiers, and hand-off validation
 
 - Replaced the flat `CANDIDATE_ROLES` catalog with an **archetype/tier system**: 13 reference archetypes (`project-orchestrator`, `repository-cartographer`, `architecture-guardian`, `implementation-agent`, `test-agent`, `bdd-feature-agent`, `code-reviewer`, `documentation-agent`, `dependency-agent`, `ci-build-agent`, `performance-agent`, `security-reviewer`, `release-agent`), each generating a Haiku-tier variant for bounded, mechanically-verifiable work and a Sonnet-tier variant for ambiguous, trade-off-driven work. `select_agents` now instantiates both tier variants of every selected archetype, so generated teams lean on many narrow, fast Haiku agents for routine work while keeping Sonnet agents available for judgment calls. `project-orchestrator` also gets a Haiku variant that mechanically executes an already-computed swarm wave plan.

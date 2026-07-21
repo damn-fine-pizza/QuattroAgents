@@ -63,6 +63,28 @@ def agent_file_stem(agent_id: str) -> str:
     return f"{AGENT_FILE_PREFIX}{agent_id}"
 
 
+MANUAL_MODEL_TAG_PATTERN = re.compile(r"^\([^()]+\)\s")
+
+
+def agent_display_description(agent: AgentDefinition) -> str:
+    """Render-time `(model)` prefix for an agent's description.
+
+    Mirrors `agent_file_stem`: `AgentDefinition.description` itself stays
+    untagged so it can't go stale if `preferred_model` changes downstream of
+    a decision after the description was written — the tag is computed
+    fresh from `agent.preferred_model` at render time instead.
+
+    If `description` already starts with a parenthesized tag (e.g. a
+    hand-authored override), it is left as-is rather than double-wrapped;
+    `validate_generated_configuration` flags that case on its own so a
+    stale/mismatched pre-existing tag can't hide silently behind a second,
+    correct one.
+    """
+    if MANUAL_MODEL_TAG_PATTERN.match(agent.description):
+        return agent.description
+    return f"({agent.preferred_model.value}) {agent.description}"
+
+
 @dataclass
 class AgentFormatConfig:
     allowed_tiers: list[str] = field(default_factory=lambda: ["1", "2", "3", "4"])
