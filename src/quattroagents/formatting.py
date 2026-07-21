@@ -37,7 +37,7 @@ ROLE_LABELS: dict[str, str] = {
     "release-agent": "release",
 }
 
-DEFAULT_ROLE = "boh"
+DEFAULT_ROLE = "generic"
 
 TIER_BY_MODEL: dict[Model, str] = {
     Model.HAIKU: "1",
