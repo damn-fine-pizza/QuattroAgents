@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+if [ "${QAGENTS_DISABLE_COMMIT_MSG:-0}" = "1" ]; then exit 0; fi
+if ! grep -Eq '^\[TASK-[0-9]+\] ' "$1"; then
+  echo "Commit message must start with [TASK-042] (or set QAGENTS_DISABLE_COMMIT_MSG=1)." >&2
+  exit 1
+fi

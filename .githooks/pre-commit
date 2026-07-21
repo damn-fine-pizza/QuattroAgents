@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+.venv/bin/python -m quattroagents validate --project .
+.venv/bin/python -m ruff check .
+.venv/bin/python -m ruff format --check .

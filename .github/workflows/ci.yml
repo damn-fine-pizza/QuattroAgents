@@ -1,0 +1,67 @@
+name: Quality gates
+
+on:
+  # With main protected for pull-request merges, this runs once after each merge.
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: Install smoke (${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - run: python -m venv .venv
+      - run: .venv/bin/python -m pip install --upgrade pip
+      - run: .venv/bin/python -m pip install .
+      - run: .venv/bin/python -m quattroagents --help
+
+  quality:
+    name: Quality gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: python -m venv .venv
+      - run: .venv/bin/python -m pip install --upgrade pip
+      - run: .venv/bin/python -m pip install ".[dev]"
+      - run: .venv/bin/python -m pytest
+      - run: .venv/bin/python -m ruff check .
+      - run: .venv/bin/python -m ruff format --check .
+      - run: .venv/bin/python -m mypy src
+      - run: .venv/bin/python -m quattroagents validate
+      - run: .venv/bin/python -m build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quattroagents-distributions
+          path: dist/
+          if-no-files-found: error
+
+  providers:
+    name: Provider gates (Codex and Claude)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: python -m venv .venv
+      - run: .venv/bin/python -m pip install --upgrade pip
+      - run: .venv/bin/python -m pip install ".[dev]"
+      - run: .venv/bin/python -m pytest tests/integration/test_adapters_claude.py tests/integration/test_adapters_codex.py

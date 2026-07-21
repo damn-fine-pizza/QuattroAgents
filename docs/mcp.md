@@ -1,0 +1,5 @@
+# MCP
+
+`qagents mcp serve` starts a local stdio JSON-RPC MCP server that exposes 21 tools for project analysis, setup, decision tracking, agent generation, interview workflows, and conflict resolution. The server accepts one request per line on stdin and returns one response per line on stdout; every tool takes an explicit `project_root` argument. Tools span analysis and profiling (`analyze_project`, `get_project_profile`), configuration (`setup`, `validate_generated_configuration`, `show_generation_diff`), agent/skill generation (`list_agents`, `generate_agents`, `generate_skills`), task preparation (`prepare_task`, `generate_swarm_plan`), decision tracking (`list_decisions`, `record_decision`, `reopen_decision`), and the full adaptive interview flow (`start_project_interview`, `get_interview_state`, `get_next_questions`, `submit_interview_answers`, `review_interview_summary`, `confirm_interview_decisions`, `list_open_knowledge_gaps`, `list_decision_conflicts`, `resolve_decision_conflict`).
+
+For direct Codex and Claude registration, see the [MCP installation guide](quattroagents-mcp.md).

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "quattroagents": {
+      "command": ".venv/bin/qagents",
+      "args": [
+        "mcp",
+        "serve"
+      ]
+    }
+  }
+}

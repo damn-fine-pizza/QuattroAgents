@@ -1,0 +1,16 @@
+agents.max_depth = 1
+agents.max_threads = 3
+
+[mcp_servers.openaiDeveloperDocs]
+url = "https://developers.openai.com/mcp"
+startup_timeout_sec = 10
+
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"
+startup_timeout_sec = 10
+
+[mcp_servers.quattroagents]
+command = ".venv/bin/qagents"
+args = ["mcp", "serve"]
+cwd = "."
+startup_timeout_sec = 10

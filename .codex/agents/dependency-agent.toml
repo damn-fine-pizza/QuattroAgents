@@ -1,0 +1,4 @@
+name = "dependency-agent"
+description = "Tracks and updates project dependencies and their compatibility."
+model_reasoning_effort = "low"
+developer_instructions = "Dependency management and maintenance\n\nWhen to use: For regular dependency audits and updates\n\nWhen not to use: Not used for feature implementation\n\nCompletion criteria: Dependencies audited for updates; Updates applied and tested; Compatibility across dependency graph verified"

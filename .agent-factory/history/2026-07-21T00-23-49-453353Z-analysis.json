@@ -1,0 +1,182 @@
+{
+  "analyzed_at": "2026-07-21T00:23:49Z",
+  "architecture_docs": [
+    ".claude/agents/architecture-guardian.md",
+    ".quattroagents/backups/20260720T114617Z/.claude/agents/architecture-adjudicator.md",
+    "docs/architecture.md"
+  ],
+  "build_systems": [
+    "setuptools"
+  ],
+  "ci_systems": [
+    "github-actions"
+  ],
+  "coding_conventions": [
+    "ruff"
+  ],
+  "existing_claude_config": {
+    "agents": [
+      "architecture-guardian",
+      "ci-build-agent",
+      "code-reviewer",
+      "dependency-agent",
+      "documentation-agent",
+      "implementation-agent",
+      "project-orchestrator",
+      "repository-cartographer",
+      "test-agent"
+    ],
+    "settings_present": true,
+    "skills": [
+      "fix-bug",
+      "implement-feature",
+      "review-change",
+      "run-regression-analysis",
+      "update-dependencies",
+      "update-documentation"
+    ]
+  },
+  "existing_codex_config": {
+    "agents": [
+      "architecture-guardian",
+      "ci-build-agent",
+      "code-reviewer",
+      "dependency-agent",
+      "documentation-agent",
+      "implementation-agent",
+      "project-orchestrator",
+      "repository-cartographer",
+      "test-agent"
+    ],
+    "config_present": true
+  },
+  "existing_mcp_servers": [
+    "quattroagents"
+  ],
+  "fingerprint": "714b61384cf530ae719bc5526d1f27e231b9bebe2a0829c3b5c3379b14826e29",
+  "languages": [
+    "python"
+  ],
+  "legacy_areas": [],
+  "risks": [
+    "duplicate implementation name '.gitignore' found in: .gitignore, .mypy_cache/.gitignore, .pytest_cache/.gitignore, .ruff_cache/.gitignore",
+    "duplicate implementation name '.mcp.json' found in: .mcp.json, .quattroagents/backups/20260720T114617Z/.mcp.json",
+    "duplicate implementation name '__init__.py' found in: src/quattroagents/__init__.py, src/quattroagents/adapters/__init__.py, src/quattroagents/generation/__init__.py, src/quattroagents/interview/__init__.py",
+    "duplicate implementation name 'agents.md' found in: .quattroagents/backups/20260720T114617Z/AGENTS.md, AGENTS.md",
+    "duplicate implementation name 'cachedir.TAG' found in: .mypy_cache/CACHEDIR.TAG, .pytest_cache/CACHEDIR.TAG, .ruff_cache/CACHEDIR.TAG",
+    "duplicate implementation name 'claude.md' found in: .quattroagents/backups/20260720T114617Z/CLAUDE.md, CLAUDE.md",
+    "duplicate implementation name 'config.toml' found in: .codex/config.toml, .quattroagents/backups/20260720T114617Z/.codex/config.toml",
+    "duplicate implementation name 'project-profile.json' found in: .agent-factory/project-profile.json, .quattroagents/project-profile.json",
+    "duplicate implementation name 'readme.md' found in: .pytest_cache/README.md, README.md",
+    "duplicate implementation name 'settings.json' found in: .claude/settings.json, .quattroagents/backups/20260720T114617Z/.claude/settings.json"
+  ],
+  "subsystems": [
+    "quattroagents",
+    "quattroagents.egg-info"
+  ],
+  "test_frameworks": [
+    "pytest"
+  ],
+  "tools": [
+    {
+      "availability": "available",
+      "capabilities": [],
+      "id": "rtk",
+      "limitations": [],
+      "recommended_for": [
+        "token-efficient CLI wrapping"
+      ],
+      "source": "cli",
+      "version": "rtk 0.43.0"
+    },
+    {
+      "availability": "available",
+      "capabilities": [
+        "semantic-code-search",
+        "persistent-codebase-context"
+      ],
+      "id": "codebase-memory-mcp",
+      "limitations": [
+        "may contain stale indexed data"
+      ],
+      "recommended_for": [
+        "architecture analysis",
+        "locating related implementations"
+      ],
+      "source": "cli",
+      "version": "codebase-memory-mcp 0.9.0"
+    },
+    {
+      "availability": "available",
+      "capabilities": [],
+      "id": "ast-grep",
+      "limitations": [],
+      "recommended_for": [],
+      "source": "cli",
+      "version": "ast-grep 0.44.1"
+    },
+    {
+      "availability": "available",
+      "capabilities": [],
+      "id": "git",
+      "limitations": [],
+      "recommended_for": [],
+      "source": "cli",
+      "version": "git version 2.54.0"
+    },
+    {
+      "availability": "available",
+      "capabilities": [],
+      "id": "gh",
+      "limitations": [],
+      "recommended_for": [],
+      "source": "cli",
+      "version": "gh version 2.94.0 (2026-06-11)"
+    },
+    {
+      "availability": "available",
+      "capabilities": [],
+      "id": "node",
+      "limitations": [],
+      "recommended_for": [],
+      "source": "cli",
+      "version": "v22.22.2"
+    },
+    {
+      "availability": "available",
+      "capabilities": [],
+      "id": "cargo",
+      "limitations": [],
+      "recommended_for": [],
+      "source": "cli",
+      "version": "cargo 1.96.1 (356927216 2026-06-26) (Fedora 1.96.1-1.fc44)"
+    },
+    {
+      "availability": "available",
+      "capabilities": [],
+      "id": "go",
+      "limitations": [],
+      "recommended_for": [],
+      "source": "cli",
+      "version": null
+    },
+    {
+      "availability": "available",
+      "capabilities": [],
+      "id": "cmake",
+      "limitations": [],
+      "recommended_for": [],
+      "source": "cli",
+      "version": "cmake version 4.2.1"
+    },
+    {
+      "availability": "available",
+      "capabilities": [],
+      "id": "make",
+      "limitations": [],
+      "recommended_for": [],
+      "source": "cli",
+      "version": "GNU Make 4.4.1"
+    }
+  ]
+}
