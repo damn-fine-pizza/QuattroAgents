@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from ..domain import AgentDefinition, SkillDefinition
+from ..formatting import agent_file_stem
 from ..persistence import GeneratedFileGuard, WriteResult
 
 
@@ -18,7 +19,7 @@ def render_claude(
 ) -> list[WriteResult]:
     """Render agents and skills as Claude .claude/ configuration files.
 
-    For each agent, writes `.claude/agents/{agent.id}.md` with YAML frontmatter
+    For each agent, writes `.claude/agents/qag-{agent.id}.md` with YAML frontmatter
     and structured markdown content.
 
     For each skill, writes `.claude/skills/{skill.id}/SKILL.md` with either
@@ -41,7 +42,7 @@ def render_claude(
     # Write agents
     for agent in agents:
         content = _render_agent_markdown(agent)
-        relative_path = f".claude/agents/{agent.id}.md"
+        relative_path = f".claude/agents/{agent_file_stem(agent.id)}.md"
         result = guard.write(relative_path, content)
         results.append(result)
 
@@ -71,7 +72,7 @@ def _render_agent_markdown(agent: AgentDefinition) -> str:
 
     # Frontmatter
     lines.append("---")
-    lines.append(f"name: {agent.id}")
+    lines.append(f"name: {agent_file_stem(agent.id)}")
     lines.append(f"description: {agent.description}")
     lines.append(f"model: {agent.preferred_model.value}")
     lines.append(f"mode: {agent.mode.value}")

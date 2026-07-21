@@ -9,8 +9,17 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from quattroagents import runtime_version
-from quattroagents.domain import DecisionScope, DecisionStatus
+from quattroagents.domain import (
+    ConflictRecord,
+    ConflictSeverity,
+    ConflictStatus,
+    ConflictType,
+    DecisionScope,
+    DecisionStatus,
+)
 from quattroagents.mcp_server import (
     tool_analyze_project,
     tool_confirm_interview_decisions,
@@ -24,12 +33,14 @@ from quattroagents.mcp_server import (
     tool_list_decisions,
     tool_record_decision,
     tool_reopen_decision,
+    tool_resolve_decision_conflict,
     tool_setup,
     tool_show_generation_diff,
     tool_start_project_interview,
     tool_submit_interview_answers,
     tool_validate_generated_configuration,
 )
+from quattroagents.persistence import AgentFactoryStore, write_json
 
 
 def _minimal_pyproject(tmp_path: Path) -> None:
@@ -265,6 +276,43 @@ def test_interview_session_flow_completes(tmp_path: Path) -> None:
     assert "session" in confirm_result
     assert "decisions" in confirm_result
     assert isinstance(confirm_result["decisions"], list)
+
+
+def test_submit_interview_answers_raises_on_missing_value_field(tmp_path: Path) -> None:
+    """Test that tool_submit_interview_answers raises ValueError when 'value' field is missing."""
+    _minimal_pyproject(tmp_path)
+    tool_analyze_project({"project_root": str(tmp_path)})
+
+    # Start session
+    session_id = "test-session-missing-value"
+    tool_start_project_interview(
+        {
+            "project_root": str(tmp_path),
+            "session_id": session_id,
+            "session_type": "initial_setup",
+        }
+    )
+
+    # Get next questions
+    questions_result = tool_get_next_questions(
+        {"project_root": str(tmp_path), "session_id": session_id}
+    )
+    questions = questions_result["questions"]
+    assert len(questions) > 0, "Expected at least one question"
+
+    # Build answers with wrong field name ("answer" instead of "value")
+    answers = [
+        {
+            "question_id": questions[0]["id"],
+            "answer": "yes",  # WRONG: should be "value"
+        }
+    ]
+
+    # Should raise ValueError about missing 'value' field
+    with pytest.raises(ValueError, match="missing required.*value"):
+        tool_submit_interview_answers(
+            {"project_root": str(tmp_path), "session_id": session_id, "answers": answers}
+        )
 
 
 def test_generate_swarm_plan_with_agent_ids(tmp_path: Path) -> None:
@@ -540,3 +588,88 @@ def test_list_decisions_with_decision_scope_filter(tmp_path: Path) -> None:
     pw_ids = [d["id"] for d in pw_result["decisions"]]
     assert "dec-scope-1" in pw_ids
     assert "dec-scope-2" not in pw_ids
+
+
+def test_resolve_decision_conflict_supersedes_losing_decisions(tmp_path: Path) -> None:
+    """Test tool_resolve_decision_conflict with USER_VS_USER type supersedes losing decisions."""
+    _minimal_pyproject(tmp_path)
+
+    # Create three decisions on the same topic (title)
+    topic_title = "Choose default database"
+    for decision_id in ["decision-a", "decision-b", "decision-c"]:
+        tool_record_decision(
+            {
+                "project_root": str(tmp_path),
+                "id": decision_id,
+                "title": topic_title,
+                "value": {"choice": decision_id},
+                "reason": f"Recommending {decision_id}",
+            }
+        )
+
+    # Verify all three are ACTIVE and exist
+    list_result = tool_list_decisions({"project_root": str(tmp_path)})
+    decisions_by_id = {d["id"]: d for d in list_result["decisions"]}
+    assert "decision-a" in decisions_by_id
+    assert "decision-b" in decisions_by_id
+    assert "decision-c" in decisions_by_id
+    assert decisions_by_id["decision-a"]["status"] == DecisionStatus.ACTIVE
+    assert decisions_by_id["decision-b"]["status"] == DecisionStatus.ACTIVE
+    assert decisions_by_id["decision-c"]["status"] == DecisionStatus.ACTIVE
+
+    # Create a conflict record with decision-c as the keeper
+    conflict = ConflictRecord(
+        id="conflict-1",
+        type=ConflictType.USER_VS_USER,
+        decision_id="decision-c",
+        evidence=["decision-a: recommends PostgreSQL", "decision-b: recommends MySQL"],
+        severity=ConflictSeverity.MEDIUM,
+        status=ConflictStatus.UNRESOLVED,
+        possible_resolutions=[
+            "keep the most recent decision and supersede the others",
+            "merge all three into a hybrid approach",
+        ],
+        resolution=None,
+    )
+
+    # Write conflict to disk at the expected path
+    store = AgentFactoryStore(tmp_path)
+    conflicts_path = store.base / "generated" / "conflicts.json"
+    write_json(conflicts_path, [conflict.to_dict()])
+
+    # Resolve the conflict with the superseding resolution
+    result = tool_resolve_decision_conflict(
+        {
+            "project_root": str(tmp_path),
+            "conflict_id": "conflict-1",
+            "resolution": "keep the most recent decision and supersede the others",
+        }
+    )
+
+    # Verify the conflict is resolved
+    assert result["conflict"]["id"] == "conflict-1"
+    assert result["conflict"]["status"] == ConflictStatus.RESOLVED
+    assert (
+        result["conflict"]["resolution"] == "keep the most recent decision and supersede the others"
+    )
+
+    # Verify the losing decisions are in the result
+    assert set(result["superseded_decisions"]) == {"decision-a", "decision-b"}
+
+    # Verify the losing decisions now have SUPERSEDED status
+    list_result_after = tool_list_decisions({"project_root": str(tmp_path)})
+    decisions_by_id_after = {d["id"]: d for d in list_result_after["decisions"]}
+
+    assert decisions_by_id_after["decision-a"]["status"] == DecisionStatus.SUPERSEDED, (
+        "decision-a should be superseded"
+    )
+    assert decisions_by_id_after["decision-b"]["status"] == DecisionStatus.SUPERSEDED, (
+        "decision-b should be superseded"
+    )
+    assert decisions_by_id_after["decision-c"]["status"] == DecisionStatus.ACTIVE, (
+        "decision-c (keeper) should still be active"
+    )
+
+    # Verify superseded_by field is set correctly
+    assert decisions_by_id_after["decision-a"]["superseded_by"] == "decision-c"
+    assert decisions_by_id_after["decision-b"]["superseded_by"] == "decision-c"

@@ -405,16 +405,28 @@ def _detect_risks_and_legacy(root: Path) -> tuple[list[str], list[str]]:
     risks: list[str] = []
     legacy_areas: list[str] = []
 
-    exclude_dirs = {".venv", "node_modules", "__pycache__", "dist", "build", ".git"}
+    exclude_dir_names = {
+        ".venv",
+        "node_modules",
+        "__pycache__",
+        "dist",
+        ".git",
+        "worktrees",
+        "_deps",
+    }
+    exclude_dir_prefixes = ("build",)
 
     stem_to_paths: dict[tuple[str, str], list[str]] = {}
     legacy_count = 0
 
     for path in root.rglob("*"):
-        if any(exc in path.parts for exc in exclude_dirs):
+        if not path.is_file():
             continue
 
-        if not path.is_file():
+        dir_parts = path.relative_to(root).parts[:-1]
+        if any(
+            part in exclude_dir_names or part.startswith(exclude_dir_prefixes) for part in dir_parts
+        ):
             continue
 
         filename_lower = path.name.lower()

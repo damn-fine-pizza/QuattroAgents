@@ -334,15 +334,22 @@ def tool_submit_interview_answers(args: dict[str, Any]) -> Any:
     store = _store(args)
     session = _require_session(store, args["session_id"])
     engine = InterviewEngine(store)
-    raw_answers = [
-        RawAnswer(
-            question_id=a["question_id"],
-            value=a.get("value", ""),
-            free_text=a.get("free_text", ""),
-            repository_contradicts=a.get("repository_contradicts", False),
+    raw_answers = []
+    for a in _coerce_json(args["answers"]):
+        if "value" not in a:
+            raise ValueError(
+                f"answer for question '{a.get('question_id', '?')}' is missing required "
+                f"field 'value' (got keys: {sorted(a.keys())}) — the answer value must be "
+                "submitted under the key 'value', not e.g. 'answer'"
+            )
+        raw_answers.append(
+            RawAnswer(
+                question_id=a["question_id"],
+                value=a["value"],
+                free_text=a.get("free_text", ""),
+                repository_contradicts=a.get("repository_contradicts", False),
+            )
         )
-        for a in _coerce_json(args["answers"])
-    ]
     session, follow_ups = engine.submit_answers(session, raw_answers)
     return {"session": session.to_dict(), "follow_up_questions": [q.to_dict() for q in follow_ups]}
 
@@ -384,8 +391,11 @@ def tool_list_decision_conflicts(args: dict[str, Any]) -> Any:
     return {"conflicts": [c.to_dict() for c in conflicts]}
 
 
+_SUPERSEDE_OTHERS_RESOLUTION = "keep the most recent decision and supersede the others"
+
+
 def tool_resolve_decision_conflict(args: dict[str, Any]) -> Any:
-    from .domain import ConflictRecord
+    from .domain import ConflictRecord, ConflictType
 
     store = _store(args)
     raw = read_json(_conflicts_path(store), [])
@@ -396,7 +406,21 @@ def tool_resolve_decision_conflict(args: dict[str, Any]) -> Any:
     resolved = resolve_conflict(target, args["resolution"])
     conflicts = [resolved if c.id == resolved.id else c for c in conflicts]
     write_json(_conflicts_path(store), [c.to_dict() for c in conflicts])
-    return {"conflict": resolved.to_dict()}
+
+    superseded: list[str] = []
+    if (
+        resolved.type == ConflictType.USER_VS_USER
+        and resolved.resolution == _SUPERSEDE_OTHERS_RESOLUTION
+    ):
+        losing_ids = [entry.split(": ", 1)[0] for entry in resolved.evidence]
+        losers = store.supersede_by_existing(
+            losing_ids,
+            resolved.decision_id,
+            reason=f"superseded by '{resolved.decision_id}' resolving conflict '{resolved.id}'",
+        )
+        superseded = [d.id for d in losers]
+
+    return {"conflict": resolved.to_dict(), "superseded_decisions": superseded}
 
 
 DISPATCH = {

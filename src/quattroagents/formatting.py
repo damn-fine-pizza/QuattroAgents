@@ -48,6 +48,20 @@ TIER_BY_MODEL: dict[Model, str] = {
 
 DEFAULT_TIER = "4"
 
+AGENT_FILE_PREFIX = "qag-"
+
+
+def agent_file_stem(agent_id: str) -> str:
+    """Filesystem/config identity for a generated agent, distinct from its internal id.
+
+    Generated agent files (and the name embedded in them) carry a `qag-`
+    prefix so they're recognizable as QuattroAgents output alongside
+    hand-authored agents in the same directory. `AgentDefinition.id` itself
+    stays unprefixed — it's the stable internal key used for selection rules,
+    decision effects, and swarm references.
+    """
+    return f"{AGENT_FILE_PREFIX}{agent_id}"
+
 
 @dataclass
 class AgentFormatConfig:

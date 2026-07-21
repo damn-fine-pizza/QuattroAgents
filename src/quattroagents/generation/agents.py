@@ -436,4 +436,35 @@ def select_agents(profile: ProjectProfile, decisions: list[Decision]) -> list[Ag
         agents.append(agent)
 
     # Return sorted by id
-    return sorted(agents, key=lambda a: a.id)
+    return attach_orchestrator_roster(sorted(agents, key=lambda a: a.id))
+
+
+def attach_orchestrator_roster(agents: list[AgentDefinition]) -> list[AgentDefinition]:
+    """Give the project-orchestrator explicit knowledge of every sibling agent.
+
+    Without this, the orchestrator's rendered output only carries generic
+    catalog prose and has no idea which agents actually exist in this
+    project's generated team, so it can't dispatch work to them by name.
+
+    Args:
+        agents: The selected agents for this project (already includes
+            project-orchestrator per Rule 1, when present).
+
+    Returns:
+        The same list, with project-orchestrator's collaboration_notes
+        extended to enumerate every other agent by id and description.
+    """
+    orchestrator = next((a for a in agents if a.id == "project-orchestrator"), None)
+    siblings = [a for a in agents if a.id != "project-orchestrator"]
+    if orchestrator is None or not siblings:
+        return agents
+
+    roster = "Available agents in this project's generated team:\n" + "\n".join(
+        f"- {a.id}: {a.description}" for a in sorted(siblings, key=lambda a: a.id)
+    )
+    orchestrator.collaboration_notes = (
+        f"{orchestrator.collaboration_notes}\n\n{roster}"
+        if orchestrator.collaboration_notes
+        else roster
+    )
+    return agents

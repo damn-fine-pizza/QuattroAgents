@@ -527,6 +527,157 @@ def test_store_supersede_decision_raises_for_unknown_old(tmp_path: Path) -> None
 
 
 # --------------------------------------------------------------------------
+# Tests: AgentFactoryStore supersede_by_existing
+# --------------------------------------------------------------------------
+
+
+def test_store_supersede_by_existing_marks_all_losers_superseded(tmp_path: Path) -> None:
+    """supersede_by_existing marks all losing decisions as SUPERSEDED."""
+    store = AgentFactoryStore(tmp_path)
+    decision_a = Decision(
+        id="a",
+        title="Decision A",
+        value={},
+        source=DecisionSource(type=DecisionSourceType.USER),
+        reason="A",
+        status=DecisionStatus.ACTIVE,
+    )
+    decision_b = Decision(
+        id="b",
+        title="Decision B",
+        value={},
+        source=DecisionSource(type=DecisionSourceType.USER),
+        reason="B",
+        status=DecisionStatus.ACTIVE,
+    )
+    decision_c = Decision(
+        id="c",
+        title="Decision C",
+        value={},
+        source=DecisionSource(type=DecisionSourceType.USER),
+        reason="C",
+        status=DecisionStatus.ACTIVE,
+    )
+
+    store.save_decision(decision_a)
+    store.save_decision(decision_b)
+    store.save_decision(decision_c)
+
+    store.supersede_by_existing(["a", "b"], "c", "some reason")
+
+    a_loaded = store.load_decision("a")
+    b_loaded = store.load_decision("b")
+    c_loaded = store.load_decision("c")
+
+    assert a_loaded is not None
+    assert a_loaded.status == DecisionStatus.SUPERSEDED
+    assert a_loaded.superseded_by == "c"
+    assert a_loaded.reason == "some reason"
+
+    assert b_loaded is not None
+    assert b_loaded.status == DecisionStatus.SUPERSEDED
+    assert b_loaded.superseded_by == "c"
+    assert b_loaded.reason == "some reason"
+
+    assert c_loaded is not None
+    assert c_loaded.status == DecisionStatus.ACTIVE
+    assert c_loaded.superseded_by is None
+
+
+def test_store_supersede_by_existing_returns_the_superseded_decisions(
+    tmp_path: Path,
+) -> None:
+    """supersede_by_existing returns the superseded Decision objects."""
+    store = AgentFactoryStore(tmp_path)
+    decision_a = Decision(
+        id="a",
+        title="Decision A",
+        value={},
+        source=DecisionSource(type=DecisionSourceType.USER),
+        reason="A",
+    )
+    decision_b = Decision(
+        id="b",
+        title="Decision B",
+        value={},
+        source=DecisionSource(type=DecisionSourceType.USER),
+        reason="B",
+    )
+    decision_c = Decision(
+        id="c",
+        title="Decision C",
+        value={},
+        source=DecisionSource(type=DecisionSourceType.USER),
+        reason="C",
+    )
+
+    store.save_decision(decision_a)
+    store.save_decision(decision_b)
+    store.save_decision(decision_c)
+
+    result = store.supersede_by_existing(["a", "b"], "c", "reason")
+
+    assert len(result) == 2
+    result_ids = {d.id for d in result}
+    assert result_ids == {"a", "b"}
+    assert all(d.status == DecisionStatus.SUPERSEDED for d in result)
+
+
+def test_store_supersede_by_existing_skips_unknown_ids(tmp_path: Path) -> None:
+    """supersede_by_existing silently skips non-existent losing ids."""
+    store = AgentFactoryStore(tmp_path)
+    decision_c = Decision(
+        id="c",
+        title="Decision C",
+        value={},
+        source=DecisionSource(type=DecisionSourceType.USER),
+        reason="C",
+    )
+
+    store.save_decision(decision_c)
+
+    result = store.supersede_by_existing(["nonexistent-id"], "c", "reason")
+
+    assert result == []
+
+
+def test_store_supersede_by_existing_skips_keeper_if_listed_among_losers(
+    tmp_path: Path,
+) -> None:
+    """supersede_by_existing skips keeper_id if it appears in losing_ids."""
+    store = AgentFactoryStore(tmp_path)
+    decision_a = Decision(
+        id="a",
+        title="Decision A",
+        value={},
+        source=DecisionSource(type=DecisionSourceType.USER),
+        reason="A",
+        status=DecisionStatus.ACTIVE,
+    )
+    decision_c = Decision(
+        id="c",
+        title="Decision C",
+        value={},
+        source=DecisionSource(type=DecisionSourceType.USER),
+        reason="C",
+        status=DecisionStatus.ACTIVE,
+    )
+
+    store.save_decision(decision_a)
+    store.save_decision(decision_c)
+
+    result = store.supersede_by_existing(["a", "c"], "c", "reason")
+
+    assert len(result) == 1
+    assert result[0].id == "a"
+
+    c_loaded = store.load_decision("c")
+    assert c_loaded is not None
+    assert c_loaded.status == DecisionStatus.ACTIVE
+    assert c_loaded.superseded_by is None
+
+
+# --------------------------------------------------------------------------
 # Tests: AgentFactoryStore reopen_decision
 # --------------------------------------------------------------------------
 

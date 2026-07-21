@@ -6,8 +6,10 @@ Examples: cartographer (1), dev (2), architect (3), boh (4)
 
 from quattroagents.domain import AgentDefinition, Model
 from quattroagents.formatting import (
+    AGENT_FILE_PREFIX,
     AgentDisplayFormatValidator,
     AgentFormatConfig,
+    agent_file_stem,
     diagnose_agent_display_line,
     normalize_agent_display_line,
     parse_agent_display_line,
@@ -745,3 +747,28 @@ def test_config_with_all_custom_settings() -> None:
     # Invalid: role too long
     result = parse_agent_display_line("a" * 21 + " (1)", config)
     assert result.valid is False
+
+
+# ============================================================================
+# Tests: agent_file_stem
+# ============================================================================
+
+
+def test_agent_file_stem_adds_qag_prefix() -> None:
+    """agent_file_stem adds qag- prefix to agent id."""
+    result = agent_file_stem("project-orchestrator")
+
+    assert result == "qag-project-orchestrator"
+
+
+def test_agent_file_stem_prefix_constant_matches() -> None:
+    """AGENT_FILE_PREFIX constant matches expected value and is used by agent_file_stem."""
+    assert AGENT_FILE_PREFIX == "qag-"
+    assert agent_file_stem("x") == AGENT_FILE_PREFIX + "x"
+
+
+def test_agent_file_stem_preserves_id_structure() -> None:
+    """agent_file_stem preserves internal hyphens in agent id."""
+    result = agent_file_stem("implementation-agent")
+
+    assert result == "qag-implementation-agent"

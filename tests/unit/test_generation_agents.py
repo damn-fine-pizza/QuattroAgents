@@ -4,6 +4,8 @@ Covers CANDIDATE_ROLES validation, select_agents() behavior, decision-driven
 attribute injection, and immutability guarantees.
 """
 
+import copy
+
 from quattroagents.domain import (
     Decision,
     DecisionSource,
@@ -12,7 +14,11 @@ from quattroagents.domain import (
     DefinitionSource,
     ProjectProfile,
 )
-from quattroagents.generation.agents import CANDIDATE_ROLES, select_agents
+from quattroagents.generation.agents import (
+    CANDIDATE_ROLES,
+    attach_orchestrator_roster,
+    select_agents,
+)
 
 
 def test_candidate_roles_has_exactly_13_entries() -> None:
@@ -718,3 +724,125 @@ def test_all_decision_selection_rules_work_together() -> None:
 
     # All 13 agents should be selected
     assert len(selected_ids) == 13
+
+
+# Tests: attach_orchestrator_roster / project-orchestrator collaboration_notes
+
+
+def test_select_agents_gives_orchestrator_a_roster_of_siblings() -> None:
+    """Orchestrator receives a roster of siblings in collaboration_notes."""
+    profile = ProjectProfile(
+        fingerprint="test",
+        test_frameworks=["pytest"],
+        build_systems=["setuptools"],
+    )
+    decisions: list[Decision] = []
+
+    selected = select_agents(profile, decisions)
+    orchestrator = next((a for a in selected if a.id == "project-orchestrator"), None)
+
+    assert orchestrator is not None
+    assert orchestrator.collaboration_notes
+    assert "Available agents in this project's generated team" in orchestrator.collaboration_notes
+    # Verify at least one sibling is listed
+    assert "repository-cartographer" in orchestrator.collaboration_notes
+
+
+def test_select_agents_orchestrator_roster_excludes_itself() -> None:
+    """Orchestrator roster does NOT list the orchestrator itself as a sibling."""
+    profile = ProjectProfile(
+        fingerprint="test",
+        test_frameworks=["pytest"],
+        build_systems=["setuptools"],
+    )
+    decisions: list[Decision] = []
+
+    selected = select_agents(profile, decisions)
+    orchestrator = next((a for a in selected if a.id == "project-orchestrator"), None)
+
+    assert orchestrator is not None
+    assert orchestrator.collaboration_notes
+    # Verify orchestrator does not list itself as a sibling
+    assert "project-orchestrator:" not in orchestrator.collaboration_notes
+
+
+def test_select_agents_orchestrator_roster_lists_every_selected_sibling() -> None:
+    """Every selected sibling agent appears in orchestrator's collaboration_notes."""
+    profile = ProjectProfile(
+        fingerprint="test",
+        test_frameworks=["pytest"],
+        build_systems=["setuptools"],
+        ci_systems=["github-actions"],
+        subsystems=["core", "auth", "api"],
+    )
+    decisions: list[Decision] = []
+
+    selected = select_agents(profile, decisions)
+    orchestrator = next((a for a in selected if a.id == "project-orchestrator"), None)
+    siblings = [a for a in selected if a.id != "project-orchestrator"]
+
+    assert orchestrator is not None
+    assert siblings  # Verify there are siblings to check
+    assert orchestrator.collaboration_notes
+
+    # Every sibling's id must appear in the orchestrator's collaboration_notes
+    for sibling in siblings:
+        assert f"- {sibling.id}:" in orchestrator.collaboration_notes, (
+            f"Sibling {sibling.id} not found in orchestrator's collaboration_notes"
+        )
+
+
+def test_attach_orchestrator_roster_no_orchestrator_returns_unchanged() -> None:
+    """If no project-orchestrator in list, attach_orchestrator_roster returns unchanged."""
+    # Create a minimal list with just repository-cartographer (no orchestrator)
+    agents = [
+        copy.deepcopy(CANDIDATE_ROLES["repository-cartographer"]),
+        copy.deepcopy(CANDIDATE_ROLES["code-reviewer"]),
+    ]
+
+    result = attach_orchestrator_roster(agents)
+
+    # List should be returned as-is
+    assert result == agents
+    assert len(result) == 2
+    # collaboration_notes should not be modified
+    repo_cart = next((a for a in result if a.id == "repository-cartographer"), None)
+    assert repo_cart is not None
+    assert repo_cart.collaboration_notes == ""
+
+
+def test_attach_orchestrator_roster_orchestrator_only_returns_unchanged() -> None:
+    """If only project-orchestrator (no siblings), collaboration_notes unchanged."""
+    agents = [copy.deepcopy(CANDIDATE_ROLES["project-orchestrator"])]
+
+    result = attach_orchestrator_roster(agents)
+
+    assert result == agents
+    assert len(result) == 1
+    orchestrator = result[0]
+    # collaboration_notes should remain unchanged (no siblings to list)
+    assert orchestrator.collaboration_notes == ""
+
+
+def test_attach_orchestrator_roster_adds_roster_to_existing_notes() -> None:
+    """If orchestrator has existing collaboration_notes, roster is appended."""
+    orchestrator = copy.deepcopy(CANDIDATE_ROLES["project-orchestrator"])
+    orchestrator.collaboration_notes = "Existing collaboration notes"
+
+    agents = [
+        orchestrator,
+        copy.deepcopy(CANDIDATE_ROLES["repository-cartographer"]),
+    ]
+
+    result = attach_orchestrator_roster(agents)
+
+    assert len(result) == 2
+    result_orchestrator = result[0]
+    # Existing notes should be preserved, then roster appended
+    assert "Existing collaboration notes" in result_orchestrator.collaboration_notes
+    assert (
+        "Available agents in this project's generated team"
+        in result_orchestrator.collaboration_notes
+    )
+    # Verify the separator newlines
+    assert "\n\n" in result_orchestrator.collaboration_notes
