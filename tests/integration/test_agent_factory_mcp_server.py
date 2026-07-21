@@ -31,6 +31,7 @@ from quattroagents.mcp_server import (
     tool_get_project_profile,
     tool_list_agents,
     tool_list_decisions,
+    tool_prepare_task,
     tool_record_decision,
     tool_reopen_decision,
     tool_resolve_decision_conflict,
@@ -313,6 +314,108 @@ def test_submit_interview_answers_raises_on_missing_value_field(tmp_path: Path) 
         tool_submit_interview_answers(
             {"project_root": str(tmp_path), "session_id": session_id, "answers": answers}
         )
+
+
+def test_prepare_task_requires_confirmed_task_preparation_session(tmp_path: Path) -> None:
+    """prepare_task rejects a session that isn't confirmed, or isn't task_preparation."""
+    _minimal_pyproject(tmp_path)
+    tool_analyze_project({"project_root": str(tmp_path)})
+
+    # Wrong session type: an initial_setup session, not confirmed.
+    tool_start_project_interview(
+        {
+            "project_root": str(tmp_path),
+            "session_id": "wrong-type-session",
+            "session_type": "initial_setup",
+        }
+    )
+    with pytest.raises(ValueError, match="not task_preparation"):
+        tool_prepare_task(
+            {
+                "project_root": str(tmp_path),
+                "task_id": "task1",
+                "goal": "Do something",
+                "session_id": "wrong-type-session",
+            }
+        )
+
+    # Right type, but not confirmed yet.
+    tool_start_project_interview(
+        {
+            "project_root": str(tmp_path),
+            "session_id": "unconfirmed-session",
+            "session_type": "task_preparation",
+            "goal": "Do something",
+        }
+    )
+    with pytest.raises(ValueError, match="not confirmed yet"):
+        tool_prepare_task(
+            {
+                "project_root": str(tmp_path),
+                "task_id": "task1",
+                "goal": "Do something",
+                "session_id": "unconfirmed-session",
+            }
+        )
+
+
+def test_prepare_task_full_flow_synthesizes_grounded_agent(tmp_path: Path) -> None:
+    """Full task_preparation flow: start -> answer -> confirm -> prepare_task."""
+    _minimal_pyproject(tmp_path)
+    tool_analyze_project({"project_root": str(tmp_path)})
+
+    session_id = "task-session-full"
+    goal = "Add a --dry-run flag to the release command"
+    start_result = tool_start_project_interview(
+        {
+            "project_root": str(tmp_path),
+            "session_id": session_id,
+            "session_type": "task_preparation",
+            "goal": goal,
+        }
+    )
+    assert start_result["session"]["type"] == "task_preparation"
+
+    questions_result = tool_get_next_questions(
+        {"project_root": str(tmp_path), "session_id": session_id}
+    )
+    questions = questions_result["questions"]
+    assert len(questions) == 3
+
+    answers = []
+    for q in questions:
+        if "scope" in q["gap_id"]:
+            value, free_text = "in-scope", "Only cli.py's release subcommand."
+        elif "outcome" in q["gap_id"]:
+            value, free_text = "outcome", "Dry-run prints planned changes without writing anything."
+        else:
+            value, free_text = "yes", "Needs write access to cli.py."
+        answers.append({"question_id": q["id"], "value": value, "free_text": free_text})
+
+    submit_result = tool_submit_interview_answers(
+        {"project_root": str(tmp_path), "session_id": session_id, "answers": answers}
+    )
+    assert submit_result["session"]["status"] == "ready_for_confirmation"
+
+    tool_confirm_interview_decisions({"project_root": str(tmp_path), "session_id": session_id})
+
+    prepare_result = tool_prepare_task(
+        {
+            "project_root": str(tmp_path),
+            "task_id": "add-dry-run",
+            "goal": goal,
+            "session_id": session_id,
+        }
+    )
+
+    task_agent = prepare_result["task_agent"]
+    assert task_agent["id"] == "task-add-dry-run"
+    assert task_agent["scope"] == "Only cli.py's release subcommand."
+    assert task_agent["completion_criteria"] == [
+        "Dry-run prints planned changes without writing anything."
+    ]
+    assert task_agent["mode"] == "write"
+    assert prepare_result["reused_agents"] == []
 
 
 def test_generate_swarm_plan_with_agent_ids(tmp_path: Path) -> None:

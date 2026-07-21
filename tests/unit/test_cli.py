@@ -330,11 +330,23 @@ class TestTask:
         fake = fake_tool_returns({"prepared": True})
         monkeypatch.setattr(cli, "DISPATCH", {"prepare_task": fake})
 
-        cli.main(["task", "prepare", "--task-id", "task1", "--goal", "Do something"])
+        cli.main(
+            [
+                "task",
+                "prepare",
+                "--task-id",
+                "task1",
+                "--goal",
+                "Do something",
+                "--session-id",
+                "session1",
+            ]
+        )
 
         assert fake.last_call is not None
         assert fake.last_call["task_id"] == "task1"
         assert fake.last_call["goal"] == "Do something"
+        assert fake.last_call["session_id"] == "session1"
         assert fake.last_call["base_agent_ids"] == "[]"  # default
 
     def test_task_prepare_with_base_agent_ids(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -350,6 +362,8 @@ class TestTask:
                 "task1",
                 "--goal",
                 "Do it",
+                "--session-id",
+                "session1",
                 "--base-agent-ids",
                 '["agent1", "agent2"]',
             ]

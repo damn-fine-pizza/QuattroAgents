@@ -28,7 +28,7 @@ The tool generates agents and skills in provider-specific directories (`.claude/
 | `decisions list` | Show all recorded decisions, optionally filtered by status or scope. |
 | `decisions record` | Manually record a decision (user, repository, inferred, or imported). |
 | `decisions reopen` | Mark a decision as uncertain and re-examine it. |
-| `task prepare` | Prepare an ad-hoc task-temporary agent. |
+| `task prepare` | Synthesize an ad-hoc task-temporary agent from a confirmed `task_preparation` interview session (`interview start --session-type task_preparation --goal ...`). |
 | `swarm plan` | Generate a deterministic, reference-only swarm execution plan. |
 | `interview start` | Begin a structured interview session (initial setup, repository change, task prep, etc.). |
 | `interview state` | Fetch current interview session state and progress. |
@@ -39,7 +39,7 @@ The tool generates agents and skills in provider-specific directories (`.claude/
 | `interview gaps` | List open knowledge gaps from the interview. |
 | `interview conflicts` | Identify conflicting decisions from repository and interview. |
 | `interview resolve` | Resolve a specific decision conflict. |
-| `mcp serve` | Start the stdio JSON-RPC server (21 tools). |
+| `mcp serve` | Start the stdio JSON-RPC server (22 tools). |
 | `mcp list` | Show available MCP tools. |
 
 All commands accept `--project /path` to target a specific repository; default is the current directory. Every command outputs JSON; add `--help` to see all flags.
@@ -50,7 +50,7 @@ All commands accept `--project /path` to target a specific repository; default i
 qagents mcp serve
 ```
 
-Starts a stdio JSON-RPC server that exposes 21 tools for analyzing projects, managing decisions, conducting interviews, and generating agents and skills. Suitable for use with Claude Code's MCP integration or other MCP clients. See `docs/mcp.md` for tool descriptions.
+Starts a stdio JSON-RPC server that exposes 22 tools for analyzing projects, managing decisions, conducting interviews, and generating agents and skills. Suitable for use with Claude Code's MCP integration or other MCP clients. See `docs/mcp.md` for tool descriptions.
 
 ## State directory (`.agent-factory/`)
 

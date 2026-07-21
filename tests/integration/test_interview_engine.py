@@ -382,3 +382,100 @@ def test_list_decision_conflicts_returns_empty_list_for_no_conflicts(
     conflicts = engine.list_decision_conflicts(session, profile)
     assert isinstance(conflicts, list)
     assert len(conflicts) == 0
+
+
+def test_start_session_task_preparation_uses_task_gaps_not_profile_gaps(tmp_path: Path) -> None:
+    """TASK_PREPARATION sessions detect task-scoped gaps regardless of profile state."""
+    store = AgentFactoryStore(tmp_path)
+    engine = InterviewEngine(store)
+
+    # A profile with no gaps at all under detect_knowledge_gaps (has test
+    # frameworks, single language, no legacy areas, has an autonomy decision).
+    profile = ProjectProfile(
+        fingerprint="test-fp",
+        languages=["python"],
+        test_frameworks=["pytest"],
+    )
+
+    session = engine.start_session(
+        SessionType.TASK_PREPARATION,
+        profile,
+        session_id="task-session-1",
+        goal="Refactor the null-check helper",
+        base_agent_ids=["implementation-agent-sonnet"],
+    )
+
+    assert session.type == SessionType.TASK_PREPARATION
+    assert session.status == SessionStatus.AWAITING_ANSWERS
+    # Task gaps are always present (scope, outcome, permission, + reuse
+    # since base_agent_ids was given), independent of profile completeness.
+    assert len(session.knowledge_gaps) == 4
+    assert "task-scope-boundary" in session.knowledge_gaps
+    assert "task-completion-outcome" in session.knowledge_gaps
+    assert "task-write-permission" in session.knowledge_gaps
+    assert "task-reuse-check" in session.knowledge_gaps
+
+
+def test_start_session_task_preparation_without_base_agent_ids_omits_reuse_gap(
+    tmp_path: Path,
+) -> None:
+    """TASK_PREPARATION without base_agent_ids skips the reuse-check gap."""
+    store = AgentFactoryStore(tmp_path)
+    engine = InterviewEngine(store)
+    profile = ProjectProfile(fingerprint="test-fp")
+
+    session = engine.start_session(
+        SessionType.TASK_PREPARATION,
+        profile,
+        session_id="task-session-2",
+        goal="Fix the flaky retry test",
+    )
+
+    assert len(session.knowledge_gaps) == 3
+    assert "task-reuse-check" not in session.knowledge_gaps
+
+
+def test_task_preparation_session_full_flow_confirms_decisions(tmp_path: Path) -> None:
+    """Full task_preparation flow: start -> answer -> confirm produces task-scoped decisions."""
+    store = AgentFactoryStore(tmp_path)
+    engine = InterviewEngine(store, max_batch=10)
+    profile = ProjectProfile(fingerprint="test-fp")
+
+    session = engine.start_session(
+        SessionType.TASK_PREPARATION,
+        profile,
+        session_id="task-session-3",
+        goal="Add a --dry-run flag to the release command",
+    )
+
+    questions = engine.get_next_questions(session)
+    assert len(questions) == 3
+
+    raw_answers = [
+        RawAnswer(
+            question_id=q.id,
+            value="scope: only cli.py's release parser" if "scope" in q.gap_id else "yes",
+            free_text=(
+                "Only cli.py's release subcommand; no other files."
+                if "scope" in q.gap_id
+                else (
+                    "Dry-run prints the planned changes without writing anything."
+                    if "outcome" in q.gap_id
+                    else "Needs write access to cli.py."
+                )
+            ),
+        )
+        for q in questions
+    ]
+    session, _ = engine.submit_answers(session, raw_answers)
+    assert session.status == SessionStatus.READY_FOR_CONFIRMATION
+
+    session, decisions = engine.confirm_decisions(session)
+    assert session.status == SessionStatus.CONFIRMED
+    assert len(decisions) == 3
+    titles = {d.title for d in decisions}
+    assert "task scope boundary" in titles
+    assert "task completion outcome" in titles
+    assert "task write permission" in titles
+    for decision in decisions:
+        assert decision.source.interview_session == "task-session-3"

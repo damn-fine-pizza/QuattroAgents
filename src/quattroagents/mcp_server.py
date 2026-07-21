@@ -20,22 +20,21 @@ from .adapters.codex import render_codex
 from .analysis import detect_changes, scan_repository
 from .domain import (
     AgentDefinition,
-    AgentLifetime,
     Decision,
     DecisionScope,
     DecisionSource,
     DecisionSourceType,
     DecisionStatus,
-    DefinitionSource,
     InterviewSession,
-    Model,
     ProjectProfile,
+    SessionStatus,
     SessionType,
 )
 from .formatting import render_agent_display
 from .generation.agents import select_agents
 from .generation.skills import select_skills
 from .generation.swarm import build_swarm_plan, render_swarm_plan_text
+from .generation.task_synthesis import synthesize_task_agent
 from .interview.conflicts import resolve_conflict
 from .interview.engine import InterviewEngine, RawAnswer
 from .persistence import AgentFactoryStore, GeneratedFileGuard, read_json, write_json
@@ -232,24 +231,43 @@ def tool_setup(args: dict[str, Any]) -> Any:
 
 
 def tool_prepare_task(args: dict[str, Any]) -> Any:
+    """Synthesize an ad-hoc task agent from a confirmed task_preparation interview.
+
+    Requires `session_id` to reference a CONFIRMED session of type
+    `task_preparation` (see `start_project_interview` with
+    `session_type=task_preparation`, `goal`, and optionally
+    `base_agent_ids`) — the proposal must be grounded in answers about
+    scope, outcome, and permissions, not just the raw goal string. Both a
+    human and a self-interviewing Claude answer through the same
+    start/get_next_questions/submit_interview_answers/confirm flow.
+    """
     store = _store(args)
     task_id = args["task_id"]
     goal = args["goal"]
+    session = _require_session(store, args["session_id"])
+    if session.type != SessionType.TASK_PREPARATION:
+        raise ValueError(
+            f"session '{session.id}' is a {session.type.value} session, not task_preparation"
+        )
+    if session.status != SessionStatus.CONFIRMED:
+        raise ValueError(
+            f"session '{session.id}' is not confirmed yet (status={session.status.value}); "
+            "answer its questions and call confirm_interview_decisions first"
+        )
+
     base_agent_ids = _coerce_json(args.get("base_agent_ids", []))
     agents_by_id = {a.id: a for a in _generated_agents(store)}
-    selected = [agents_by_id[i] for i in base_agent_ids if i in agents_by_id]
-    task_agent = AgentDefinition(
-        id=f"task-{task_id}",
-        description=f"Ad-hoc agent prepared for task '{task_id}': {goal}",
-        scope=goal,
-        lifetime=AgentLifetime.TASK_TEMPORARY,
-        source=DefinitionSource.TASK_TEMPORARY,
-        preferred_model=Model.SONNET,
-        completion_criteria=["requested behavior for this task is covered"],
-    )
+    reused = [agents_by_id[i] for i in base_agent_ids if i in agents_by_id]
+
+    session_decisions = [
+        d
+        for d in store.list_decisions(status=DecisionStatus.ACTIVE)
+        if d.source.interview_session == session.id
+    ]
+    task_agent = synthesize_task_agent(task_id, goal, session_decisions, reused)
     return {
         "task_agent": task_agent.to_dict(),
-        "reused_agents": [a.to_dict() for a in selected],
+        "reused_agents": [a.to_dict() for a in reused],
         "display": render_agent_display(task_agent),
     }
 
@@ -312,7 +330,13 @@ def tool_start_project_interview(args: dict[str, Any]) -> Any:
     profile = _require_profile(store, root)
     engine = InterviewEngine(store)
     session_type = SessionType(args.get("session_type", "initial_setup"))
-    session = engine.start_session(session_type, profile, session_id=args["session_id"])
+    session = engine.start_session(
+        session_type,
+        profile,
+        session_id=args["session_id"],
+        goal=args.get("goal"),
+        base_agent_ids=_coerce_json(args.get("base_agent_ids", [])),
+    )
     return {"session": session.to_dict()}
 
 

@@ -108,6 +108,7 @@ def _build_parser() -> argparse.ArgumentParser:
     task_prepare = task_sub.add_parser("prepare", parents=[project_parent])
     task_prepare.add_argument("--task-id", required=True)
     task_prepare.add_argument("--goal", required=True)
+    task_prepare.add_argument("--session-id", required=True)
     task_prepare.add_argument("--base-agent-ids", default="[]")
 
     swarm = sub.add_parser("swarm")
@@ -125,6 +126,8 @@ def _build_parser() -> argparse.ArgumentParser:
     iv_start = interview_sub.add_parser("start", parents=[project_parent])
     iv_start.add_argument("--session-id", required=True)
     iv_start.add_argument("--session-type", default="initial_setup")
+    iv_start.add_argument("--goal")
+    iv_start.add_argument("--base-agent-ids", default="[]")
     for name in ("state", "next", "answer", "summary", "confirm", "gaps", "conflicts"):
         p = interview_sub.add_parser(name, parents=[project_parent])
         p.add_argument("session_id")
@@ -176,7 +179,14 @@ def _dispatch_decisions(args: argparse.Namespace, root: Path) -> Any:
 def _dispatch_interview(args: argparse.Namespace, root: Path) -> Any:
     tool_name = _INTERVIEW_TOOL_BY_COMMAND[args.interview_command]
     if args.interview_command == "start":
-        return _call(tool_name, root, session_id=args.session_id, session_type=args.session_type)
+        return _call(
+            tool_name,
+            root,
+            session_id=args.session_id,
+            session_type=args.session_type,
+            goal=args.goal,
+            base_agent_ids=args.base_agent_ids,
+        )
     if args.interview_command == "answer":
         return _call(tool_name, root, session_id=args.session_id, answers=args.answers)
     if args.interview_command == "resolve":
@@ -212,6 +222,7 @@ def main(argv: list[str] | None = None) -> int:
                 root,
                 task_id=args.task_id,
                 goal=args.goal,
+                session_id=args.session_id,
                 base_agent_ids=args.base_agent_ids,
             )
         elif args.command == "swarm":

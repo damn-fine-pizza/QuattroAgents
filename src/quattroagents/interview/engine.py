@@ -38,6 +38,7 @@ from .questions import (
     needs_follow_up,
     plan_question_batch,
 )
+from .task_gaps import detect_task_gaps
 
 DEFAULT_MAX_FOLLOW_UP_DEPTH = 2
 
@@ -89,10 +90,18 @@ class InterviewEngine:
         profile: ProjectProfile,
         *,
         session_id: str,
+        goal: str | None = None,
+        base_agent_ids: list[str] | None = None,
     ) -> InterviewSession:
-        active_decisions = self.store.list_decisions(status=DecisionStatus.ACTIVE)
-        gaps = detect_knowledge_gaps(profile, active_decisions)
-        gaps += find_stale_decisions(active_decisions, profile)
+        if session_type == SessionType.TASK_PREPARATION:
+            # Task-scoped gaps are intrinsic to the request, not inferred
+            # from the repository, so they don't depend on the profile or
+            # active decisions — see interview/task_gaps.py.
+            gaps = detect_task_gaps(goal or "", list(base_agent_ids or []))
+        else:
+            active_decisions = self.store.list_decisions(status=DecisionStatus.ACTIVE)
+            gaps = detect_knowledge_gaps(profile, active_decisions)
+            gaps += find_stale_decisions(active_decisions, profile)
 
         session = InterviewSession(
             id=session_id,
