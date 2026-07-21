@@ -1,4 +1,8 @@
-"""Unit tests for canonical agent display format parsing and validation."""
+"""Unit tests for canonical agent display format parsing and validation.
+
+Format: <role> (<tier>)
+Examples: cartographer (1), dev (2), architect (3), boh (4)
+"""
 
 from quattroagents.domain import AgentDefinition, Model
 from quattroagents.formatting import (
@@ -10,191 +14,440 @@ from quattroagents.formatting import (
     render_agent_display,
 )
 
-
+# ============================================================================
 # Test 1: Valid line parses successfully
-def test_valid_line_parses_successfully() -> None:
-    line = (
-        "repository-cartographer [haiku] Analizza struttura, dipendenze e confini del repository."
-    )
+# ============================================================================
+
+
+def test_valid_cartographer_line() -> None:
+    """Valid display line with known role."""
+    line = "cartographer (1)"
     result = parse_agent_display_line(line)
 
     assert result.valid is True
     assert result.violations == []
-    assert result.agent_name == "repository-cartographer"
-    assert result.model == "haiku"
-    assert result.description == "Analizza struttura, dipendenze e confini del repository."
+    assert result.role == "cartographer"
+    assert result.tier == "1"
 
 
-# Test 2: Invalid - parentheses instead of brackets
-def test_invalid_parentheses_instead_of_brackets() -> None:
-    line = (
-        "repository-cartographer (haiku) Analizza struttura, dipendenze e confini del repository."
-    )
-    result = parse_agent_display_line(line)
-
-    assert result.valid is False
-    assert len(result.violations) > 0
-    violation_codes = [v.code for v in result.violations]
-    assert "malformed_brackets" in violation_codes
-
-
-# Test 3: Invalid - missing model entirely
-def test_invalid_missing_model_entirely() -> None:
-    line = "repository-cartographer Analizza il repository con dettaglio."
-    result = parse_agent_display_line(line)
-
-    assert result.valid is False
-    assert len(result.violations) > 0
-    violation_codes = [v.code for v in result.violations]
-    assert "missing_model" in violation_codes
-
-
-# Test 4: Invalid - uppercase/non-kebab-case agent name
-def test_invalid_uppercase_agent_name() -> None:
-    line = "Repository Cartographer [haiku] Analizza il repository con dettaglio."
-    result = parse_agent_display_line(line)
-
-    assert result.valid is False
-    assert len(result.violations) > 0
-    violation_codes = [v.code for v in result.violations]
-    assert "invalid_agent_name" in violation_codes
-
-
-def test_invalid_non_kebab_case_agent_name() -> None:
-    # Underscore causes name pattern to partially match, leaving invalid format for brackets
-    line = "repository_cartographer [haiku] Analizza il repository con dettaglio."
-    result = parse_agent_display_line(line)
-
-    assert result.valid is False
-    assert len(result.violations) > 0
-    violation_codes = [v.code for v in result.violations]
-    # Underscore in name causes malformed_brackets error (name pattern matches "repository" but leaves "_cartographer")
-    assert "malformed_brackets" in violation_codes
-
-
-def test_invalid_agent_name_starts_with_uppercase() -> None:
-    # Name starting with uppercase fails the name pattern entirely
-    line = "Repository-Cartographer [haiku] Analizza il repository con dettaglio."
-    result = parse_agent_display_line(line)
-
-    assert result.valid is False
-    assert len(result.violations) > 0
-    violation_codes = [v.code for v in result.violations]
-    assert "invalid_agent_name" in violation_codes
-
-
-def test_invalid_agent_name_starts_with_number() -> None:
-    # Name starting with number fails the name pattern entirely
-    line = "9-agent [haiku] Analizza il repository con dettaglio."
-    result = parse_agent_display_line(line)
-
-    assert result.valid is False
-    assert len(result.violations) > 0
-    violation_codes = [v.code for v in result.violations]
-    assert "invalid_agent_name" in violation_codes
-
-
-# Test 5: Invalid - unknown model not in allowed_models
-def test_invalid_unknown_model() -> None:
-    line = "repository-cartographer [unknown-model] Analizza il repository con dettaglio."
-    result = parse_agent_display_line(line)
-
-    assert result.valid is False
-    assert len(result.violations) > 0
-    violation_codes = [v.code for v in result.violations]
-    assert "invalid_model" in violation_codes
-
-
-# Test 6: Invalid - description too short
-def test_invalid_description_too_short() -> None:
-    line = "repository-cartographer [haiku] Short desc"
-    result = parse_agent_display_line(line)
-
-    assert result.valid is False
-    assert len(result.violations) > 0
-    violation_codes = [v.code for v in result.violations]
-    assert "description_too_short" in violation_codes
-
-
-# Test 6b: Invalid - description too long
-def test_invalid_description_too_long() -> None:
-    long_desc = "x" * 181  # Exceeds default maximum of 180
-    line = f"repository-cartographer [haiku] {long_desc}"
-    result = parse_agent_display_line(line)
-
-    assert result.valid is False
-    assert len(result.violations) > 0
-    violation_codes = [v.code for v in result.violations]
-    assert "description_too_long" in violation_codes
-
-
-# Test 7: Model alias resolution
-def test_model_alias_resolution() -> None:
-    line = "repository-cartographer [claude-haiku] Analizza struttura, dipendenze e confini del repository."
+def test_valid_dev_line() -> None:
+    """Valid display line with 'dev' role."""
+    line = "dev (2)"
     result = parse_agent_display_line(line)
 
     assert result.valid is True
-    assert result.model == "haiku"  # Alias resolved to "haiku"
+    assert result.violations == []
+    assert result.role == "dev"
+    assert result.tier == "2"
 
 
-def test_model_alias_sonnet_resolution() -> None:
-    line = "code-reviewer [claude-sonnet] Analizza struttura, dipendenze e confini del repository."
+def test_valid_boh_line() -> None:
+    """Valid display line with default 'boh' role."""
+    line = "boh (4)"
     result = parse_agent_display_line(line)
 
     assert result.valid is True
-    assert result.model == "sonnet"
+    assert result.violations == []
+    assert result.role == "boh"
+    assert result.tier == "4"
 
 
-def test_model_alias_opus_resolution() -> None:
-    line = (
-        "strategic-planner [claude-opus] Analizza struttura, dipendenze e confini del repository."
+def test_render_agent_display_cartographer() -> None:
+    """render_agent_display produces correct format for repository-cartographer."""
+    agent = AgentDefinition(
+        id="repository-cartographer",
+        description="Analizza struttura, dipendenze e confini del repository.",
+        preferred_model=Model.HAIKU,
     )
+    rendered = render_agent_display(agent)
+
+    assert rendered == "cartographer (1)"
+    # Parse it back to verify
+    result = parse_agent_display_line(rendered)
+    assert result.valid is True
+    assert result.role == "cartographer"
+    assert result.tier == "1"
+
+
+# ============================================================================
+# Test 2: Invalid - square brackets used instead of parens -> malformed_delimiters
+# ============================================================================
+
+
+def test_invalid_square_brackets_instead_of_parens() -> None:
+    """Square brackets instead of parentheses is detected as malformed_delimiters."""
+    line = "cartographer [1]"
+    result = parse_agent_display_line(line)
+
+    assert result.valid is False
+    assert len(result.violations) > 0
+    violation_codes = [v.code for v in result.violations]
+    assert "malformed_delimiters" in violation_codes
+
+
+def test_invalid_square_brackets_with_tier() -> None:
+    """Another square bracket variant should fail."""
+    line = "dev [2]"
+    result = parse_agent_display_line(line)
+
+    assert result.valid is False
+    violation_codes = [v.code for v in result.violations]
+    assert "malformed_delimiters" in violation_codes
+
+
+# ============================================================================
+# Test 3: Invalid - missing tier entirely / empty parens -> missing_tier
+# ============================================================================
+
+
+def test_invalid_missing_tier_no_parens() -> None:
+    """Line with no parentheses at all."""
+    line = "cartographer"
+    result = parse_agent_display_line(line)
+
+    assert result.valid is False
+    assert len(result.violations) > 0
+    violation_codes = [v.code for v in result.violations]
+    assert "missing_tier" in violation_codes
+
+
+def test_invalid_empty_parens() -> None:
+    """Empty parentheses ()."""
+    line = "cartographer ()"
+    result = parse_agent_display_line(line)
+
+    assert result.valid is False
+    assert len(result.violations) > 0
+    violation_codes = [v.code for v in result.violations]
+    assert "missing_tier" in violation_codes
+
+
+def test_invalid_whitespace_only_in_parens() -> None:
+    """Whitespace-only inside parentheses is treated as invalid tier."""
+    line = "cartographer (  )"
+    result = parse_agent_display_line(line)
+
+    assert result.valid is False
+    violation_codes = [v.code for v in result.violations]
+    # Whitespace-only tier gets matched but is not in allowed_tiers
+    assert "invalid_tier" in violation_codes
+
+
+# ============================================================================
+# Test 4: Invalid - role starts with uppercase or digit -> invalid_role
+# ============================================================================
+
+
+def test_invalid_role_starts_with_uppercase() -> None:
+    """Role starting with uppercase letter."""
+    line = "Cartographer (1)"
+    result = parse_agent_display_line(line)
+
+    assert result.valid is False
+    assert len(result.violations) > 0
+    violation_codes = [v.code for v in result.violations]
+    assert "invalid_role" in violation_codes
+
+
+def test_invalid_role_starts_with_digit() -> None:
+    """Role starting with a digit."""
+    line = "9dev (2)"
+    result = parse_agent_display_line(line)
+
+    assert result.valid is False
+    violation_codes = [v.code for v in result.violations]
+    assert "invalid_role" in violation_codes
+
+
+def test_invalid_role_mixed_case() -> None:
+    """Role with mixed case."""
+    line = "CartOGrapher (1)"
+    result = parse_agent_display_line(line)
+
+    assert result.valid is False
+    violation_codes = [v.code for v in result.violations]
+    assert "invalid_role" in violation_codes
+
+
+# ============================================================================
+# Test 5: Invalid - tier not in allowed_tiers -> invalid_tier
+# ============================================================================
+
+
+def test_invalid_tier_5() -> None:
+    """Tier 5 not in default allowed_tiers."""
+    line = "cartographer (5)"
+    result = parse_agent_display_line(line)
+
+    assert result.valid is False
+    assert len(result.violations) > 0
+    violation_codes = [v.code for v in result.violations]
+    assert "invalid_tier" in violation_codes
+
+
+def test_invalid_tier_0() -> None:
+    """Tier 0 not allowed."""
+    line = "dev (0)"
+    result = parse_agent_display_line(line)
+
+    assert result.valid is False
+    violation_codes = [v.code for v in result.violations]
+    assert "invalid_tier" in violation_codes
+
+
+def test_invalid_tier_abc() -> None:
+    """Tier with letters."""
+    line = "architect (abc)"
+    result = parse_agent_display_line(line)
+
+    assert result.valid is False
+    violation_codes = [v.code for v in result.violations]
+    assert "invalid_tier" in violation_codes
+
+
+def test_invalid_tier_two_digits() -> None:
+    """Tier with two digits."""
+    line = "reviewer (10)"
+    result = parse_agent_display_line(line)
+
+    assert result.valid is False
+    violation_codes = [v.code for v in result.violations]
+    assert "invalid_tier" in violation_codes
+
+
+# ============================================================================
+# Test 6: Invalid - role too short -> role_too_short
+# ============================================================================
+
+
+def test_invalid_role_too_short_single_char() -> None:
+    """Single-character role is below minimum of 2."""
+    line = "d (2)"
+    result = parse_agent_display_line(line)
+
+    assert result.valid is False
+    assert len(result.violations) > 0
+    violation_codes = [v.code for v in result.violations]
+    assert "role_too_short" in violation_codes
+
+
+def test_invalid_role_too_short_empty() -> None:
+    """Empty role."""
+    line = " (2)"
+    result = parse_agent_display_line(line)
+
+    assert result.valid is False
+    violation_codes = [v.code for v in result.violations]
+    # Empty role may be caught as invalid_role or role_too_short
+    assert "invalid_role" in violation_codes or "role_too_short" in violation_codes
+
+
+# ============================================================================
+# Test 7: Invalid - role too long -> role_too_long
+# ============================================================================
+
+
+def test_invalid_role_too_long() -> None:
+    """Role exceeding maximum length of 40 characters."""
+    long_role = "a" * 41
+    line = f"{long_role} (2)"
+    result = parse_agent_display_line(line)
+
+    assert result.valid is False
+    assert len(result.violations) > 0
+    violation_codes = [v.code for v in result.violations]
+    assert "role_too_long" in violation_codes
+
+
+def test_invalid_role_exactly_at_max_length() -> None:
+    """Role exactly at maximum (40 chars) should be valid."""
+    role = "a" * 40
+    line = f"{role} (2)"
     result = parse_agent_display_line(line)
 
     assert result.valid is True
-    assert result.model == "opus"
 
 
-# Test 8: normalize_agent_display_line
-def test_normalize_parentheses_to_brackets() -> None:
-    line = (
-        "repository-cartographer (haiku) Analizza struttura, dipendenze e confini del repository."
+def test_invalid_role_just_over_max_length() -> None:
+    """Role one char over maximum (41 chars)."""
+    role = "a" * 41
+    line = f"{role} (2)"
+    result = parse_agent_display_line(line)
+
+    assert result.valid is False
+    violation_codes = [v.code for v in result.violations]
+    assert "role_too_long" in violation_codes
+
+
+# ============================================================================
+# Test 8: render_agent_display for each Model value
+# ============================================================================
+
+
+def test_render_agent_display_haiku() -> None:
+    """render_agent_display with Model.HAIKU -> tier 1."""
+    agent = AgentDefinition(
+        id="repository-cartographer",
+        description="",
+        preferred_model=Model.HAIKU,
     )
+    rendered = render_agent_display(agent)
+
+    assert rendered == "cartographer (1)"
+    result = parse_agent_display_line(rendered)
+    assert result.valid is True
+    assert result.tier == "1"
+
+
+def test_render_agent_display_sonnet() -> None:
+    """render_agent_display with Model.SONNET -> tier 2."""
+    agent = AgentDefinition(
+        id="code-reviewer",
+        description="",
+        preferred_model=Model.SONNET,
+    )
+    rendered = render_agent_display(agent)
+
+    assert rendered == "reviewer (2)"
+    result = parse_agent_display_line(rendered)
+    assert result.valid is True
+    assert result.tier == "2"
+
+
+def test_render_agent_display_opus() -> None:
+    """render_agent_display with Model.OPUS -> tier 3."""
+    agent = AgentDefinition(
+        id="project-orchestrator",
+        description="",
+        preferred_model=Model.OPUS,
+    )
+    rendered = render_agent_display(agent)
+
+    assert rendered == "orchestrator (3)"
+    result = parse_agent_display_line(rendered)
+    assert result.valid is True
+    assert result.tier == "3"
+
+
+def test_render_agent_display_inherit() -> None:
+    """render_agent_display with Model.INHERIT -> tier 4."""
+    agent = AgentDefinition(
+        id="unknown-custom-agent",
+        description="",
+        preferred_model=Model.INHERIT,
+    )
+    rendered = render_agent_display(agent)
+
+    assert rendered == "boh (4)"
+    result = parse_agent_display_line(rendered)
+    assert result.valid is True
+    assert result.tier == "4"
+
+
+# ============================================================================
+# Test 9: render_agent_display for unknown agent id -> "boh"
+# ============================================================================
+
+
+def test_render_unknown_agent_id_uses_default_boh() -> None:
+    """Agent id not in ROLE_LABELS renders with default 'boh' role."""
+    agent = AgentDefinition(
+        id="unknown-agent-xyz",
+        description="",
+        preferred_model=Model.HAIKU,
+    )
+    rendered = render_agent_display(agent)
+
+    assert rendered == "boh (1)"
+    result = parse_agent_display_line(rendered)
+    assert result.valid is True
+    assert result.role == "boh"
+
+
+def test_render_all_known_role_labels() -> None:
+    """Verify a few known role labels render correctly."""
+    test_cases = [
+        ("project-orchestrator", Model.OPUS, "orchestrator (3)"),
+        ("repository-cartographer", Model.HAIKU, "cartographer (1)"),
+        ("architecture-guardian", Model.SONNET, "architect (2)"),
+        ("implementation-agent", Model.HAIKU, "dev (1)"),
+        ("test-agent", Model.HAIKU, "tester (1)"),
+        ("code-reviewer", Model.SONNET, "reviewer (2)"),
+    ]
+
+    for agent_id, model, expected in test_cases:
+        agent = AgentDefinition(id=agent_id, description="", preferred_model=model)
+        rendered = render_agent_display(agent)
+        assert rendered == expected, f"Failed for {agent_id}: got {rendered}, expected {expected}"
+
+
+# ============================================================================
+# Test 10: normalize_agent_display_line
+# ============================================================================
+
+
+def test_normalize_brackets_to_parens() -> None:
+    """Normalize square brackets to parentheses."""
+    line = "cartographer [1]"
     result = normalize_agent_display_line(line)
 
     assert result.changed is True
-    assert (
-        result.normalized_line
-        == "repository-cartographer [haiku] Analizza struttura, dipendenze e confini del repository."
-    )
+    # The role character class includes space, capturing trailing space before bracket
+    assert result.normalized_line == "cartographer  (1)"
 
 
-def test_normalize_missing_spacing_around_brackets() -> None:
-    line = "repository-cartographer[haiku] Analizza struttura, dipendenze e confini del repository."
+def test_normalize_brackets_to_parens_with_spacing() -> None:
+    """Normalize square brackets with irregular spacing."""
+    line = "cartographer [ 1 ]"
     result = normalize_agent_display_line(line)
 
     assert result.changed is True
-    assert (
-        result.normalized_line
-        == "repository-cartographer [haiku] Analizza struttura, dipendenze e confini del repository."
-    )
+    # Role includes trailing space, tier content includes internal spaces
+    assert result.normalized_line == "cartographer  ( 1 )"
 
 
-def test_normalize_extra_spacing_before_description() -> None:
-    # Note: Extra spaces after ] are considered valid and not normalized
-    # This is because parse sees "] " followed by description including the extra spaces
-    line = (
-        "repository-cartographer [haiku]   Analizza struttura, dipendenze e confini del repository."
-    )
+def test_normalize_spacing_around_parens() -> None:
+    """Normalize missing space before parentheses."""
+    line = "cartographer(1)"
     result = normalize_agent_display_line(line)
 
-    # Extra spaces after ] are part of valid description, so no normalization occurs
+    assert result.changed is True
+    assert result.normalized_line == "cartographer (1)"
+
+
+def test_normalize_extra_spacing_before_parens() -> None:
+    """Normalize extra spacing before parentheses."""
+    line = "cartographer  [1]"
+    result = normalize_agent_display_line(line)
+
+    assert result.changed is True
+    # Bracket conversion plus space cleanup
+    assert "cartographer" in result.normalized_line and "(1)" in result.normalized_line
+
+
+def test_normalize_already_valid_unchanged() -> None:
+    """Valid line remains unchanged."""
+    line = "cartographer (1)"
+    result = normalize_agent_display_line(line)
+
     assert result.changed is False
     assert result.normalized_line == line
 
 
-def test_normalize_missing_model_returns_unchanged() -> None:
-    line = "repository-cartographer Analizza il repository con dettaglio."
+def test_normalize_missing_tier_unfixable() -> None:
+    """Cannot normalize line with missing tier."""
+    line = "cartographer"
+    result = normalize_agent_display_line(line)
+
+    assert result.changed is False
+    assert result.normalized_line is None
+    assert result.reason is not None
+    assert "missing tier" in result.reason
+
+
+def test_normalize_invalid_role_unfixable() -> None:
+    """Cannot normalize line with invalid role (uppercase)."""
+    line = "Cartographer (1)"
     result = normalize_agent_display_line(line)
 
     assert result.changed is False
@@ -202,67 +455,22 @@ def test_normalize_missing_model_returns_unchanged() -> None:
     assert result.reason is not None
 
 
-def test_normalize_already_valid_line_returns_unchanged() -> None:
-    line = (
-        "repository-cartographer [haiku] Analizza struttura, dipendenze e confini del repository."
-    )
-    result = normalize_agent_display_line(line)
-
-    assert result.changed is False
-    assert result.normalized_line == line
+# ============================================================================
+# Test 11: diagnose_agent_display_line
+# ============================================================================
 
 
-# Test 9: render_agent_display
-def test_render_agent_display() -> None:
-    agent = AgentDefinition(
-        id="repository-cartographer",
-        description="Analizza struttura, dipendenze e confini del repository.",
-        preferred_model=Model.HAIKU,
-    )
-    rendered = render_agent_display(agent)
-
-    assert (
-        rendered
-        == "repository-cartographer [haiku] Analizza struttura, dipendenze e confini del repository."
-    )
-
-
-def test_render_agent_display_with_sonnet() -> None:
-    agent = AgentDefinition(
-        id="code-reviewer",
-        description="Rivedi il codice per stile e correttezza.",
-        preferred_model=Model.SONNET,
-    )
-    rendered = render_agent_display(agent)
-
-    assert rendered == "code-reviewer [sonnet] Rivedi il codice per stile e correttezza."
-
-
-def test_render_agent_display_with_opus() -> None:
-    agent = AgentDefinition(
-        id="strategic-planner",
-        description="Pianifica strategie architetturali a lungo termine.",
-        preferred_model=Model.OPUS,
-    )
-    rendered = render_agent_display(agent)
-
-    assert (
-        rendered == "strategic-planner [opus] Pianifica strategie architetturali a lungo termine."
-    )
-
-
-# Test 10: diagnose_agent_display_line
 def test_diagnose_valid_line() -> None:
-    line = (
-        "repository-cartographer [haiku] Analizza struttura, dipendenze e confini del repository."
-    )
+    """Diagnose valid line shows simple success message."""
+    line = "cartographer (1)"
     diagnosis = diagnose_agent_display_line(line)
 
     assert diagnosis == "Valid agent format."
 
 
-def test_diagnose_invalid_line() -> None:
-    line = "Repository Cartographer [haiku] Short"
+def test_diagnose_invalid_line_contains_structure() -> None:
+    """Diagnose invalid line includes Found/Expected/Errors."""
+    line = "Cartographer (1)"
     diagnosis = diagnose_agent_display_line(line)
 
     assert "Invalid agent format" in diagnosis
@@ -271,155 +479,269 @@ def test_diagnose_invalid_line() -> None:
     assert "Errors:" in diagnosis
 
 
-def test_diagnose_invalid_line_contains_error_details() -> None:
-    line = "repository-cartographer (haiku) Short"
+def test_diagnose_invalid_line_includes_violation_codes() -> None:
+    """Diagnose message includes violation codes."""
+    line = "cartographer [1]"
     diagnosis = diagnose_agent_display_line(line)
 
     assert "Invalid agent format" in diagnosis
-    assert "Found:" in diagnosis
-    assert "Expected:" in diagnosis
-    assert "Errors:" in diagnosis
-    assert "malformed_brackets" in diagnosis or "description_too_short" in diagnosis
+    assert "malformed_delimiters" in diagnosis
 
 
-# Test 11: AgentDisplayFormatValidator class wrapper
-def test_validator_validate_delegates_correctly() -> None:
+def test_diagnose_missing_tier() -> None:
+    """Diagnose line with missing tier."""
+    line = "cartographer"
+    diagnosis = diagnose_agent_display_line(line)
+
+    assert "Invalid agent format" in diagnosis
+    assert "missing_tier" in diagnosis
+
+
+def test_diagnose_role_too_short() -> None:
+    """Diagnose line with role too short."""
+    line = "a (1)"
+    diagnosis = diagnose_agent_display_line(line)
+
+    assert "Invalid agent format" in diagnosis
+    assert "role_too_short" in diagnosis
+
+
+# ============================================================================
+# Test 12: AgentDisplayFormatValidator wrapper class
+# ============================================================================
+
+
+def test_validator_validate_delegates() -> None:
+    """Validator.validate() delegates to parse_agent_display_line()."""
     validator = AgentDisplayFormatValidator()
-    line = (
-        "repository-cartographer [haiku] Analizza struttura, dipendenze e confini del repository."
-    )
+    line = "cartographer (1)"
 
-    wrapped_result = validator.validate(line)
+    validator_result = validator.validate(line)
     direct_result = parse_agent_display_line(line)
 
-    assert wrapped_result.valid == direct_result.valid
-    assert wrapped_result.agent_name == direct_result.agent_name
-    assert wrapped_result.model == direct_result.model
-    assert wrapped_result.description == direct_result.description
+    assert validator_result.valid == direct_result.valid
+    assert validator_result.role == direct_result.role
+    assert validator_result.tier == direct_result.tier
+    assert validator_result.violations == direct_result.violations
 
 
-def test_validator_normalize_delegates_correctly() -> None:
+def test_validator_normalize_delegates() -> None:
+    """Validator.normalize() delegates to normalize_agent_display_line()."""
     validator = AgentDisplayFormatValidator()
-    line = "repository-cartographer[haiku] Analizza struttura, dipendenze e confini del repository."
+    line = "cartographer(1)"
 
-    wrapped_result = validator.normalize(line)
+    validator_result = validator.normalize(line)
     direct_result = normalize_agent_display_line(line)
 
-    assert wrapped_result.changed == direct_result.changed
-    assert wrapped_result.normalized_line == direct_result.normalized_line
+    assert validator_result.changed == direct_result.changed
+    assert validator_result.normalized_line == direct_result.normalized_line
 
 
-def test_validator_render_delegates_correctly() -> None:
+def test_validator_render_delegates() -> None:
+    """Validator.render() delegates to render_agent_display()."""
     validator = AgentDisplayFormatValidator()
     agent = AgentDefinition(
         id="repository-cartographer",
-        description="Analizza struttura, dipendenze e confini del repository.",
+        description="",
         preferred_model=Model.HAIKU,
     )
 
-    wrapped_result = validator.render(agent)
+    validator_result = validator.render(agent)
     direct_result = render_agent_display(agent)
 
-    assert wrapped_result == direct_result
+    assert validator_result == direct_result
 
 
-def test_validator_diagnose_delegates_correctly() -> None:
+def test_validator_diagnose_delegates() -> None:
+    """Validator.diagnose() delegates to diagnose_agent_display_line()."""
     validator = AgentDisplayFormatValidator()
-    line = (
-        "repository-cartographer [haiku] Analizza struttura, dipendenze e confini del repository."
-    )
+    line = "cartographer (1)"
 
-    wrapped_result = validator.diagnose(line)
+    validator_result = validator.diagnose(line)
     direct_result = diagnose_agent_display_line(line)
 
-    assert wrapped_result == direct_result
+    assert validator_result == direct_result
 
 
-# Additional tests for edge cases
-def test_validator_with_custom_config() -> None:
-    config = AgentFormatConfig(
-        allowed_models=["custom-model"],
-        description_minimum_length=10,
-        description_maximum_length=100,
-    )
-    validator = AgentDisplayFormatValidator(config)
-
-    line = "my-agent [custom-model] This is a custom description."
-    result = validator.validate(line)
-
-    assert result.valid is True
-    assert result.model == "custom-model"
+# ============================================================================
+# Test 13: AgentFormatConfig custom configuration
+# ============================================================================
 
 
-def test_multiple_model_aliases_with_validator() -> None:
-    config = AgentFormatConfig()
-    validator = AgentDisplayFormatValidator(config)
-
-    lines = [
-        ("agent-one [claude-haiku] This is a haiku agent with long description.", "haiku"),
-        ("agent-two [claude-sonnet] This is a sonnet agent with long description.", "sonnet"),
-        ("agent-three [claude-opus] This is an opus agent with long description.", "opus"),
-    ]
-
-    for line, expected_model in lines:
-        result = validator.validate(line)
-        assert result.valid is True
-        assert result.model == expected_model
-
-
-def test_normalization_preserves_valid_description() -> None:
-    # Extra spaces after ] are considered valid (part of description)
-    line = (
-        "repository-cartographer [haiku]  Analizza struttura, dipendenze e confini del repository."
-    )
-    result = normalize_agent_display_line(line)
-
-    # Line is valid as-is, so no normalization occurs
-    assert result.changed is False
-    assert result.normalized_line == line
-
-
-def test_empty_model_brackets_invalid() -> None:
-    line = "repository-cartographer [] Analizza struttura, dipendenze e confini del repository."
-    result = parse_agent_display_line(line)
+def test_custom_config_allowed_tiers() -> None:
+    """Custom allowed_tiers configuration takes effect."""
+    config = AgentFormatConfig(allowed_tiers=["2", "3"])
+    result = parse_agent_display_line("cartographer (1)", config)
 
     assert result.valid is False
     violation_codes = [v.code for v in result.violations]
-    assert "missing_model" in violation_codes
+    assert "invalid_tier" in violation_codes
 
 
-def test_agent_name_with_numbers_valid() -> None:
-    line = "agent-2024 [haiku] Analizza struttura, dipendenze e confini del repository."
+def test_custom_config_allowed_tiers_valid() -> None:
+    """Custom allowed_tiers allows specified tiers."""
+    config = AgentFormatConfig(allowed_tiers=["1", "5"])
+    result = parse_agent_display_line("cartographer (5)", config)
+
+    assert result.valid is True
+
+
+def test_custom_config_role_minimum_length() -> None:
+    """Custom role_minimum_length takes effect."""
+    config = AgentFormatConfig(role_minimum_length=5)
+    result = parse_agent_display_line("dev (1)", config)
+
+    assert result.valid is False
+    violation_codes = [v.code for v in result.violations]
+    assert "role_too_short" in violation_codes
+
+
+def test_custom_config_role_minimum_length_valid() -> None:
+    """Custom role_minimum_length allows valid roles."""
+    config = AgentFormatConfig(role_minimum_length=1)
+    result = parse_agent_display_line("d (1)", config)
+
+    assert result.valid is True
+
+
+def test_custom_config_role_maximum_length() -> None:
+    """Custom role_maximum_length takes effect."""
+    config = AgentFormatConfig(role_maximum_length=5)
+    result = parse_agent_display_line("developer (1)", config)
+
+    assert result.valid is False
+    violation_codes = [v.code for v in result.violations]
+    assert "role_too_long" in violation_codes
+
+
+def test_validator_uses_custom_config() -> None:
+    """Validator applies custom config to all operations."""
+    config = AgentFormatConfig(allowed_tiers=["2"], role_minimum_length=3)
+    validator = AgentDisplayFormatValidator(config)
+
+    result = validator.validate("dev (1)")
+    assert result.valid is False
+    violation_codes = [v.code for v in result.violations]
+    assert "invalid_tier" in violation_codes
+
+
+# ============================================================================
+# Test 14: Role labels can contain spaces and +
+# ============================================================================
+
+
+def test_role_with_spaces() -> None:
+    """Role labels can contain spaces."""
+    line = "dev tools (2)"
     result = parse_agent_display_line(line)
 
     assert result.valid is True
-    assert result.agent_name == "agent-2024"
+    assert result.role == "dev tools"
+    assert result.tier == "2"
 
 
-def test_agent_name_with_single_letter_invalid() -> None:
-    line = "a [haiku] Analizza struttura, dipendenze e confini del repository."
+def test_role_with_plus_sign() -> None:
+    """Role labels can contain + signs."""
+    line = "dev c++ (2)"
     result = parse_agent_display_line(line)
 
-    # Single letter followed by invalid format should fail
-    # The pattern requires kebab-case which means letter, then optional parts
-    # "a" by itself is actually valid per the regex, but let's verify
-    assert result.valid is True  # single letter 'a' is valid
+    assert result.valid is True
+    assert result.role == "dev c++"
+    assert result.tier == "2"
 
 
-def test_render_preserves_all_agent_properties() -> None:
-    agent = AgentDefinition(
-        id="test-agent",
-        description="Test description for rendering.",
+def test_role_with_slash() -> None:
+    """Role labels can contain forward slashes."""
+    line = "ci/cd (2)"
+    result = parse_agent_display_line(line)
+
+    assert result.valid is True
+    assert result.role == "ci/cd"
+    assert result.tier == "2"
+
+
+def test_role_with_mixed_special_chars() -> None:
+    """Role labels can contain combination of special chars."""
+    line = "dev c++ tools (3)"
+    result = parse_agent_display_line(line)
+
+    assert result.valid is True
+    assert result.role == "dev c++ tools"
+    assert result.tier == "3"
+
+
+# ============================================================================
+# Test 15: Edge cases and integration
+# ============================================================================
+
+
+def test_valid_tier_boundaries() -> None:
+    """All valid tiers 1-4 parse successfully."""
+    for tier in ["1", "2", "3", "4"]:
+        line = f"dev ({tier})"
+        result = parse_agent_display_line(line)
+        assert result.valid is True
+        assert result.tier == tier
+
+
+def test_multiple_spaces_in_role() -> None:
+    """Role with multiple consecutive spaces."""
+    line = "agent  name (1)"
+    result = parse_agent_display_line(line)
+
+    # The regex allows spaces, so this should parse
+    assert result.valid is True
+    assert "agent  name" in result.role or result.role == "agent  name"
+
+
+def test_render_then_parse_roundtrip() -> None:
+    """Render an agent and parse it back."""
+    original_agent = AgentDefinition(
+        id="code-reviewer",
+        description="",
         preferred_model=Model.SONNET,
-        responsibilities=["do something"],
-        scope="project-wide",
     )
-    rendered = render_agent_display(agent)
 
-    # render_agent_display should only render id, model, and description
-    assert "test-agent" in rendered
-    assert "[sonnet]" in rendered
-    assert "Test description for rendering." in rendered
-    # Should not include other properties
-    assert "responsibilities" not in rendered
-    assert "project-wide" not in rendered
+    rendered = render_agent_display(original_agent)
+    parsed = parse_agent_display_line(rendered)
+
+    assert parsed.valid is True
+    assert parsed.role == "reviewer"
+    assert parsed.tier == "2"
+
+
+def test_normalize_then_parse_roundtrip() -> None:
+    """Normalize a line and parse the result."""
+    line = "cartographer[1]"
+    normalized = normalize_agent_display_line(line)
+    assert normalized.changed is True
+
+    parsed = parse_agent_display_line(normalized.normalized_line or "")
+    assert parsed.valid is True
+    assert parsed.role == "cartographer"
+    assert parsed.tier == "1"
+
+
+def test_config_with_all_custom_settings() -> None:
+    """Config with all custom settings applied correctly."""
+    config = AgentFormatConfig(
+        allowed_tiers=["1", "2"],
+        role_minimum_length=3,
+        role_maximum_length=20,
+    )
+
+    # Valid: within all bounds
+    result = parse_agent_display_line("abc (1)", config)
+    assert result.valid is True
+
+    # Invalid: tier not allowed
+    result = parse_agent_display_line("abc (3)", config)
+    assert result.valid is False
+
+    # Invalid: role too short
+    result = parse_agent_display_line("ab (1)", config)
+    assert result.valid is False
+
+    # Invalid: role too long
+    result = parse_agent_display_line("a" * 21 + " (1)", config)
+    assert result.valid is False

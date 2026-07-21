@@ -501,8 +501,8 @@ def test_render_swarm_plan_text_uses_render_agent_display() -> None:
     text = render_swarm_plan_text(plan, agents_by_id)
 
     # Should contain the rendered agent line
-    # Format is: <agent-name> [<model>] <description>
-    expected_line = "agent-a [haiku] Analyzes the repository"
+    # Format is: <role> (<tier>); "agent-a" has no catalog role, so it's "boh"
+    expected_line = "boh (1)"
     assert expected_line in text
 
 

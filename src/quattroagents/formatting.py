@@ -1,8 +1,12 @@
 """Canonical text formatting for agent display lines.
 
-Format: <agent-name> [<model>] <description>
+Format: <role> (<tier>)
 
-Valid example: repository-cartographer [haiku] Analizza struttura, dipendenze e confini del repository.
+Valid example: cartographer (1)
+
+`role` is a short, generic label for what the agent does (not its
+`AgentDefinition.id`); `tier` is a single digit 1-4 encoding the agent's
+preferred model: 1=haiku, 2=sonnet, 3=opus, 4=inherit.
 """
 
 from __future__ import annotations
@@ -11,24 +15,45 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from .domain import Model
+
 if TYPE_CHECKING:
     from .domain import AgentDefinition
 
 
+ROLE_LABELS: dict[str, str] = {
+    "project-orchestrator": "orchestrator",
+    "repository-cartographer": "cartographer",
+    "architecture-guardian": "architect",
+    "implementation-agent": "dev",
+    "test-agent": "tester",
+    "bdd-feature-agent": "bdd",
+    "code-reviewer": "reviewer",
+    "documentation-agent": "docs",
+    "dependency-agent": "deps",
+    "ci-build-agent": "ci",
+    "performance-agent": "perf",
+    "security-reviewer": "security",
+    "release-agent": "release",
+}
+
+DEFAULT_ROLE = "boh"
+
+TIER_BY_MODEL: dict[Model, str] = {
+    Model.HAIKU: "1",
+    Model.SONNET: "2",
+    Model.OPUS: "3",
+    Model.INHERIT: "4",
+}
+
+DEFAULT_TIER = "4"
+
+
 @dataclass
 class AgentFormatConfig:
-    allowed_models: list[str] = field(
-        default_factory=lambda: ["haiku", "sonnet", "opus", "inherit"]
-    )
-    model_aliases: dict[str, str] = field(
-        default_factory=lambda: {
-            "claude-haiku": "haiku",
-            "claude-sonnet": "sonnet",
-            "claude-opus": "opus",
-        }
-    )
-    description_minimum_length: int = 12
-    description_maximum_length: int = 180
+    allowed_tiers: list[str] = field(default_factory=lambda: ["1", "2", "3", "4"])
+    role_minimum_length: int = 2
+    role_maximum_length: int = 40
 
 
 @dataclass
@@ -43,9 +68,8 @@ class FormatViolation:
 class ValidationResult:
     valid: bool
     violations: list[FormatViolation] = field(default_factory=list)
-    agent_name: str | None = None
-    model: str | None = None
-    description: str | None = None
+    role: str | None = None
+    tier: str | None = None
 
 
 @dataclass
@@ -61,117 +85,110 @@ def parse_agent_display_line(
     """Parse and validate a line against the canonical agent format.
 
     Uses a strict regex first. On failure, attempts specific diagnostics.
-    On success, performs model and description length validation.
+    On success, performs tier and role length validation.
     """
     if config is None:
         config = AgentFormatConfig()
 
     violations: list[FormatViolation] = []
-    agent_name: str | None = None
-    model: str | None = None
-    description: str | None = None
+    role: str | None = None
+    tier: str | None = None
 
-    strict_pattern = (
-        r"^(?P<name>[a-z][a-z0-9]*(?:-[a-z0-9]+)*) \[(?P<model>[^\[\]]*)\] (?P<description>.+)$"
-    )
+    strict_pattern = r"^(?P<role>[a-z][a-z0-9+/ -]*) \((?P<tier>[^()]*)\)$"
     match = re.match(strict_pattern, line)
 
     if match:
-        agent_name = match.group("name")
-        model = match.group("model")
-        description = match.group("description")
+        role = match.group("role")
+        tier = match.group("tier")
 
-        if not model:
+        if not tier:
             violations.append(
                 FormatViolation(
-                    code="missing_model",
-                    message="Model cannot be empty inside brackets",
+                    code="missing_tier",
+                    message="Tier cannot be empty inside parentheses",
+                    found=line,
+                )
+            )
+        elif tier not in config.allowed_tiers:
+            violations.append(
+                FormatViolation(
+                    code="invalid_tier",
+                    message=f"Tier '{tier}' is not in allowed_tiers: {config.allowed_tiers}",
+                    found=line,
+                )
+            )
+
+        if not role or not role.strip():
+            violations.append(
+                FormatViolation(
+                    code="invalid_role",
+                    message="Role cannot be empty",
                     found=line,
                 )
             )
         else:
-            resolved_model = config.model_aliases.get(model, model)
-            if resolved_model not in config.allowed_models:
+            role_len = len(role.strip())
+            if role_len < config.role_minimum_length:
                 violations.append(
                     FormatViolation(
-                        code="invalid_model",
-                        message=f"Model '{resolved_model}' is not in allowed_models: {config.allowed_models}",
+                        code="role_too_short",
+                        message=f"Role is {role_len} characters; minimum is {config.role_minimum_length}",
                         found=line,
                     )
                 )
-            model = resolved_model
-
-        if not description or not description.strip():
-            violations.append(
-                FormatViolation(
-                    code="missing_description",
-                    message="Description cannot be empty",
-                    found=line,
-                )
-            )
-        else:
-            desc_len = len(description.strip())
-            if desc_len < config.description_minimum_length:
+            elif role_len > config.role_maximum_length:
                 violations.append(
                     FormatViolation(
-                        code="description_too_short",
-                        message=f"Description is {desc_len} characters; minimum is {config.description_minimum_length}",
-                        found=line,
-                    )
-                )
-            elif desc_len > config.description_maximum_length:
-                violations.append(
-                    FormatViolation(
-                        code="description_too_long",
-                        message=f"Description is {desc_len} characters; maximum is {config.description_maximum_length}",
+                        code="role_too_long",
+                        message=f"Role is {role_len} characters; maximum is {config.role_maximum_length}",
                         found=line,
                     )
                 )
 
     else:
-        paren_pattern = r"\(([^()]+)\)"
-        if re.search(paren_pattern, line):
+        bracket_pattern = r"\[([^\[\]]+)\]"
+        if re.search(bracket_pattern, line):
             violations.append(
                 FormatViolation(
-                    code="malformed_brackets",
-                    message="Parentheses ( ) used instead of brackets [ ]",
+                    code="malformed_delimiters",
+                    message="Brackets [ ] used instead of parentheses ( )",
                     found=line,
                 )
             )
         else:
-            name_pattern = r"^([a-z][a-z0-9]*(?:-[a-z0-9]+)*)"
-            name_match = re.match(name_pattern, line)
-            if not name_match:
+            role_pattern = r"^([a-z][a-z0-9+/ -]*)"
+            role_match = re.match(role_pattern, line)
+            if not role_match:
                 violations.append(
                     FormatViolation(
-                        code="invalid_agent_name",
-                        message="Agent name must be lowercase kebab-case, starting with a letter",
+                        code="invalid_role",
+                        message="Role must be lowercase, starting with a letter",
                         found=line,
                     )
                 )
             else:
-                if "[" in line or "]" in line:
-                    if " [" not in line or "] " not in line:
+                if "(" in line or ")" in line:
+                    if " (" not in line or not line.endswith(")"):
                         violations.append(
                             FormatViolation(
                                 code="invalid_spacing",
-                                message="Brackets must be surrounded by exactly one space on each side",
+                                message="Tier must be wrapped in ( ) preceded by exactly one space",
                                 found=line,
                             )
                         )
                     else:
                         violations.append(
                             FormatViolation(
-                                code="malformed_brackets",
-                                message="Brackets are malformed or not properly closed",
+                                code="malformed_delimiters",
+                                message="Parentheses are malformed or not properly closed",
                                 found=line,
                             )
                         )
                 else:
                     violations.append(
                         FormatViolation(
-                            code="missing_model",
-                            message="Missing model specification in brackets [...]",
+                            code="missing_tier",
+                            message="Missing tier specification in parentheses (...)",
                             found=line,
                         )
                     )
@@ -179,15 +196,16 @@ def parse_agent_display_line(
     return ValidationResult(
         valid=(len(violations) == 0),
         violations=violations,
-        agent_name=agent_name,
-        model=model,
-        description=description,
+        role=role,
+        tier=tier,
     )
 
 
 def render_agent_display(agent: AgentDefinition) -> str:
     """Render an AgentDefinition as a canonical display line."""
-    return f"{agent.id} [{agent.preferred_model.value}] {agent.description}"
+    role = ROLE_LABELS.get(agent.id, DEFAULT_ROLE)
+    tier = TIER_BY_MODEL.get(agent.preferred_model, DEFAULT_TIER)
+    return f"{role} ({tier})"
 
 
 def normalize_agent_display_line(
@@ -196,9 +214,9 @@ def normalize_agent_display_line(
     """Normalize unambiguous format violations.
 
     Only fixes:
-    - Parentheses instead of brackets: name (model) desc -> name [model] desc
-    - Missing/extra spaces around brackets: name[model] desc, name [model]desc -> name [model] desc
-    Does not invent missing model or description.
+    - Brackets instead of parentheses: role [tier] -> role (tier)
+    - Missing/extra spaces around parentheses: role(tier), role (tier)desc -> role (tier)
+    Does not invent a missing role or tier.
     """
     if config is None:
         config = AgentFormatConfig()
@@ -209,32 +227,27 @@ def normalize_agent_display_line(
 
     violation_codes = {v.code for v in result.violations}
 
-    if "missing_model" in violation_codes or "missing_description" in violation_codes:
+    if "missing_tier" in violation_codes or "invalid_role" in violation_codes:
         reasons = []
-        if "missing_model" in violation_codes:
-            reasons.append("missing model")
-        if "missing_description" in violation_codes:
-            reasons.append("missing description")
+        if "missing_tier" in violation_codes:
+            reasons.append("missing tier")
+        if "invalid_role" in violation_codes:
+            reasons.append("invalid role")
         return NormalizationResult(changed=False, normalized_line=None, reason=": ".join(reasons))
 
-    paren_pattern = (
-        r"^(?P<name>[a-z][a-z0-9]*(?:-[a-z0-9]+)*)\s*\((?P<model>[^()]+)\)\s+(?P<desc>.+)$"
-    )
-    paren_match = re.match(paren_pattern, line)
-    if paren_match:
-        fixed = f"{paren_match.group('name')} [{paren_match.group('model')}] {paren_match.group('desc')}"
+    bracket_as_paren_pattern = r"^(?P<role>[a-z][a-z0-9+/ -]*)\s*\[(?P<tier>[^\[\]]+)\]\s*$"
+    bracket_match = re.match(bracket_as_paren_pattern, line)
+    if bracket_match:
+        fixed = f"{bracket_match.group('role')} ({bracket_match.group('tier')})"
         return NormalizationResult(changed=True, normalized_line=fixed)
 
-    bracket_pattern = (
-        r"^(?P<name>[a-z][a-z0-9]*(?:-[a-z0-9]+)*)\s*\[(?P<model>[^\[\]]+)\]\s*(?P<desc>.+)$"
-    )
-    bracket_match = re.match(bracket_pattern, line)
-    if bracket_match:
-        name = bracket_match.group("name")
-        model = bracket_match.group("model")
-        desc = bracket_match.group("desc")
-        if model and desc.strip():
-            fixed = f"{name} [{model}] {desc.strip()}"
+    paren_pattern = r"^(?P<role>[a-z][a-z0-9+/ -]*)\s*\((?P<tier>[^()]+)\)\s*$"
+    paren_match = re.match(paren_pattern, line)
+    if paren_match:
+        role = paren_match.group("role")
+        tier = paren_match.group("tier")
+        if role.strip() and tier:
+            fixed = f"{role.strip()} ({tier})"
             if fixed != line:
                 return NormalizationResult(changed=True, normalized_line=fixed)
             return NormalizationResult(changed=False, normalized_line=line)
@@ -260,7 +273,7 @@ def diagnose_agent_display_line(line: str, config: AgentFormatConfig | None = No
         line,
         "",
         "Expected:",
-        "<agent-name> [<model>] <description>",
+        "<role> (<tier>)",
         "",
         "Errors:",
     ]

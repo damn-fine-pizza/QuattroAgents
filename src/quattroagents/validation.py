@@ -223,7 +223,7 @@ def validate_generated_configuration(
                     )
 
     # Check 9: Agent display line must match the canonical
-    # `<agent-name> [<model>] <description>` grammar
+    # `<role> (<tier>)` grammar
     display_validator = AgentDisplayFormatValidator()
     for agent in agents:
         display_result = display_validator.validate(render_agent_display(agent))
