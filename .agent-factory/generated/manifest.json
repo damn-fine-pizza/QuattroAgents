@@ -1,0 +1,620 @@
+{
+  "agents": [
+    {
+      "available_tools": [],
+      "collaboration_notes": "",
+      "completion_criteria": [
+        "Design review completed and documented",
+        "Cross-component impact assessed",
+        "Architectural consistency verified"
+      ],
+      "constraints": [],
+      "description": "Evaluates architectural decisions and cross-component changes.",
+      "escalation_criteria": [],
+      "expected_inputs": [],
+      "expected_outputs": [],
+      "fallback_model": null,
+      "forbidden_tools": [],
+      "id": "architecture-guardian",
+      "lifetime": "permanent",
+      "mandatory_tools": [],
+      "mode": "read_only",
+      "permissions": {
+        "can_create_commits": false,
+        "can_delete_files": false,
+        "can_execute_commands": false,
+        "can_modify_config": false,
+        "can_modify_git": false,
+        "can_open_pr": false,
+        "can_push": false,
+        "can_read_files": true,
+        "can_use_network": false,
+        "can_write_files": false
+      },
+      "preferred_model": "sonnet",
+      "relevant_paths": [],
+      "required_skills": [],
+      "responsibilities": [
+        "Review architectural implications of changes",
+        "Assess cross-component dependencies and impacts",
+        "Ensure architectural consistency across system"
+      ],
+      "scope": "Architectural decisions and system design",
+      "source": "default",
+      "when_not_to_use": "For isolated, single-component changes with no architectural impact",
+      "when_to_use": "When changes affect system architecture or multiple components"
+    },
+    {
+      "available_tools": [],
+      "collaboration_notes": "",
+      "completion_criteria": [
+        "CI configuration verified and updated",
+        "Build pipeline health confirmed",
+        "Test suite passing in CI environment"
+      ],
+      "constraints": [],
+      "description": "Maintains CI pipeline configuration and build health.",
+      "escalation_criteria": [],
+      "expected_inputs": [],
+      "expected_outputs": [],
+      "fallback_model": null,
+      "forbidden_tools": [],
+      "id": "ci-build-agent",
+      "lifetime": "permanent",
+      "mandatory_tools": [],
+      "mode": "write",
+      "permissions": {
+        "can_create_commits": false,
+        "can_delete_files": false,
+        "can_execute_commands": false,
+        "can_modify_config": false,
+        "can_modify_git": false,
+        "can_open_pr": false,
+        "can_push": false,
+        "can_read_files": true,
+        "can_use_network": false,
+        "can_write_files": true
+      },
+      "preferred_model": "haiku",
+      "relevant_paths": [
+        ".github/workflows/**",
+        ".gitlab-ci.yml",
+        ".circleci/**",
+        "Jenkinsfile"
+      ],
+      "required_skills": [],
+      "responsibilities": [
+        "Maintain CI/CD pipeline configuration",
+        "Monitor and improve build health",
+        "Ensure test suite runs successfully in CI"
+      ],
+      "scope": "CI/CD pipeline and build infrastructure",
+      "source": "default",
+      "when_not_to_use": "Not used for application code changes",
+      "when_to_use": "When CI configuration needs updates or maintenance"
+    },
+    {
+      "available_tools": [],
+      "collaboration_notes": "",
+      "completion_criteria": [
+        "Diff reviewed for correctness",
+        "Compatibility with codebase verified",
+        "Test coverage adequacy assessed"
+      ],
+      "constraints": [],
+      "description": "Reviews diffs for correctness, compatibility, and test coverage without modifying files.",
+      "escalation_criteria": [],
+      "expected_inputs": [],
+      "expected_outputs": [],
+      "fallback_model": null,
+      "forbidden_tools": [],
+      "id": "code-reviewer",
+      "lifetime": "permanent",
+      "mandatory_tools": [],
+      "mode": "read_only",
+      "permissions": {
+        "can_create_commits": false,
+        "can_delete_files": false,
+        "can_execute_commands": false,
+        "can_modify_config": false,
+        "can_modify_git": false,
+        "can_open_pr": false,
+        "can_push": false,
+        "can_read_files": true,
+        "can_use_network": false,
+        "can_write_files": false
+      },
+      "preferred_model": "sonnet",
+      "relevant_paths": [],
+      "required_skills": [],
+      "responsibilities": [
+        "Review code changes for correctness and quality",
+        "Assess compatibility with existing codebase",
+        "Evaluate test coverage of changes"
+      ],
+      "scope": "Code review and quality assurance",
+      "source": "default",
+      "when_not_to_use": "Not used for implementing changes or writing code",
+      "when_to_use": "After code changes are ready for review"
+    },
+    {
+      "available_tools": [],
+      "collaboration_notes": "",
+      "completion_criteria": [
+        "Dependencies audited for updates",
+        "Updates applied and tested",
+        "Compatibility across dependency graph verified"
+      ],
+      "constraints": [],
+      "description": "Tracks and updates project dependencies and their compatibility.",
+      "escalation_criteria": [],
+      "expected_inputs": [],
+      "expected_outputs": [],
+      "fallback_model": null,
+      "forbidden_tools": [],
+      "id": "dependency-agent",
+      "lifetime": "permanent",
+      "mandatory_tools": [],
+      "mode": "write",
+      "permissions": {
+        "can_create_commits": false,
+        "can_delete_files": false,
+        "can_execute_commands": true,
+        "can_modify_config": false,
+        "can_modify_git": false,
+        "can_open_pr": false,
+        "can_push": false,
+        "can_read_files": true,
+        "can_use_network": false,
+        "can_write_files": true
+      },
+      "preferred_model": "haiku",
+      "relevant_paths": [
+        "package.json",
+        "package-lock.json",
+        "requirements*.txt",
+        "pyproject.toml",
+        "poetry.lock",
+        "Cargo.toml",
+        "Cargo.lock",
+        "go.mod",
+        "go.sum",
+        "Gemfile",
+        "Gemfile.lock"
+      ],
+      "required_skills": [],
+      "responsibilities": [
+        "Audit project dependencies for updates and security",
+        "Apply dependency updates and resolve conflicts",
+        "Verify compatibility across dependencies"
+      ],
+      "scope": "Dependency management and maintenance",
+      "source": "default",
+      "when_not_to_use": "Not used for feature implementation",
+      "when_to_use": "For regular dependency audits and updates"
+    },
+    {
+      "available_tools": [],
+      "collaboration_notes": "",
+      "completion_criteria": [
+        "Documentation updated to reflect changes",
+        "Examples and usage docs synchronized",
+        "README and primary docs reviewed"
+      ],
+      "constraints": [],
+      "description": "Keeps README and docs synchronized with implemented behavior.",
+      "escalation_criteria": [],
+      "expected_inputs": [],
+      "expected_outputs": [],
+      "fallback_model": null,
+      "forbidden_tools": [],
+      "id": "documentation-agent",
+      "lifetime": "permanent",
+      "mandatory_tools": [],
+      "mode": "write",
+      "permissions": {
+        "can_create_commits": false,
+        "can_delete_files": false,
+        "can_execute_commands": false,
+        "can_modify_config": false,
+        "can_modify_git": false,
+        "can_open_pr": false,
+        "can_push": false,
+        "can_read_files": true,
+        "can_use_network": false,
+        "can_write_files": true
+      },
+      "preferred_model": "haiku",
+      "relevant_paths": [
+        "docs/**",
+        "README*",
+        "CHANGELOG*",
+        "**/*.md"
+      ],
+      "required_skills": [],
+      "responsibilities": [
+        "Update documentation to reflect implemented changes",
+        "Keep examples and usage docs synchronized",
+        "Maintain README and user-facing docs"
+      ],
+      "scope": "Documentation and user guides",
+      "source": "default",
+      "when_not_to_use": "Not used for code implementation or testing",
+      "when_to_use": "When new features or changes need documentation updates"
+    },
+    {
+      "available_tools": [],
+      "collaboration_notes": "",
+      "completion_criteria": [
+        "Code changes implemented",
+        "Changes comply with scope boundaries",
+        "Implementation follows established patterns"
+      ],
+      "constraints": [],
+      "description": "Implements scoped changes within the boundaries set by the orchestrator.",
+      "escalation_criteria": [],
+      "expected_inputs": [],
+      "expected_outputs": [],
+      "fallback_model": null,
+      "forbidden_tools": [],
+      "id": "implementation-agent",
+      "lifetime": "permanent",
+      "mandatory_tools": [],
+      "mode": "write",
+      "permissions": {
+        "can_create_commits": false,
+        "can_delete_files": false,
+        "can_execute_commands": false,
+        "can_modify_config": false,
+        "can_modify_git": false,
+        "can_open_pr": false,
+        "can_push": false,
+        "can_read_files": true,
+        "can_use_network": false,
+        "can_write_files": true
+      },
+      "preferred_model": "sonnet",
+      "relevant_paths": [
+        "**/*"
+      ],
+      "required_skills": [],
+      "responsibilities": [
+        "Implement requested changes and features",
+        "Follow established coding standards and patterns",
+        "Respect scoping boundaries set by orchestrator"
+      ],
+      "scope": "Code implementation within defined scope",
+      "source": "default",
+      "when_not_to_use": "Not used for review, testing, or release tasks",
+      "when_to_use": "When code changes or new features need to be implemented"
+    },
+    {
+      "available_tools": [],
+      "collaboration_notes": "",
+      "completion_criteria": [
+        "All phases completed and reviewed",
+        "Handoff to next phase confirmed",
+        "Team alignment on deliverables achieved"
+      ],
+      "constraints": [],
+      "description": "Coordinates discovery, design, implementation, and review phases across the generated agent team.",
+      "escalation_criteria": [],
+      "expected_inputs": [],
+      "expected_outputs": [],
+      "fallback_model": null,
+      "forbidden_tools": [],
+      "id": "project-orchestrator",
+      "lifetime": "permanent",
+      "mandatory_tools": [],
+      "mode": "read_only",
+      "permissions": {
+        "can_create_commits": false,
+        "can_delete_files": false,
+        "can_execute_commands": false,
+        "can_modify_config": false,
+        "can_modify_git": false,
+        "can_open_pr": false,
+        "can_push": false,
+        "can_read_files": true,
+        "can_use_network": false,
+        "can_write_files": false
+      },
+      "preferred_model": "sonnet",
+      "relevant_paths": [],
+      "required_skills": [],
+      "responsibilities": [
+        "Orchestrate discovery, design, and implementation phases",
+        "Coordinate communication between team members",
+        "Track progress and manage phase transitions"
+      ],
+      "scope": "Entire project lifecycle management",
+      "source": "default",
+      "when_not_to_use": "Not needed for single-agent or trivial tasks",
+      "when_to_use": "At the start of any agent swarm to coordinate work"
+    },
+    {
+      "available_tools": [],
+      "collaboration_notes": "",
+      "completion_criteria": [
+        "Complete repo structure documented",
+        "Dependencies mapped and categorized",
+        "Subsystem boundaries clearly identified"
+      ],
+      "constraints": [],
+      "description": "Maps repository structure, dependencies, and subsystem boundaries.",
+      "escalation_criteria": [],
+      "expected_inputs": [],
+      "expected_outputs": [],
+      "fallback_model": null,
+      "forbidden_tools": [],
+      "id": "repository-cartographer",
+      "lifetime": "permanent",
+      "mandatory_tools": [],
+      "mode": "read_only",
+      "permissions": {
+        "can_create_commits": false,
+        "can_delete_files": false,
+        "can_execute_commands": false,
+        "can_modify_config": false,
+        "can_modify_git": false,
+        "can_open_pr": false,
+        "can_push": false,
+        "can_read_files": true,
+        "can_use_network": false,
+        "can_write_files": false
+      },
+      "preferred_model": "haiku",
+      "relevant_paths": [],
+      "required_skills": [],
+      "responsibilities": [
+        "Analyze repository structure and layout",
+        "Document dependencies and their relationships",
+        "Identify subsystem boundaries and interfaces"
+      ],
+      "scope": "Repository analysis and mapping",
+      "source": "default",
+      "when_not_to_use": "Not applicable to non-repository work",
+      "when_to_use": "During initial project analysis and onboarding"
+    },
+    {
+      "available_tools": [],
+      "collaboration_notes": "",
+      "completion_criteria": [
+        "Test cases written and documented",
+        "All tests passing",
+        "Coverage threshold met for new code"
+      ],
+      "constraints": [],
+      "description": "Writes and runs automated tests for the requested behavior.",
+      "escalation_criteria": [],
+      "expected_inputs": [],
+      "expected_outputs": [],
+      "fallback_model": null,
+      "forbidden_tools": [],
+      "id": "test-agent",
+      "lifetime": "permanent",
+      "mandatory_tools": [],
+      "mode": "write",
+      "permissions": {
+        "can_create_commits": false,
+        "can_delete_files": false,
+        "can_execute_commands": true,
+        "can_modify_config": false,
+        "can_modify_git": false,
+        "can_open_pr": false,
+        "can_push": false,
+        "can_read_files": true,
+        "can_use_network": false,
+        "can_write_files": true
+      },
+      "preferred_model": "sonnet",
+      "relevant_paths": [
+        "tests/**",
+        "**/test_*.py",
+        "**/*_test.py",
+        "**/*.test.*",
+        "**/*.spec.*"
+      ],
+      "required_skills": [],
+      "responsibilities": [
+        "Write automated test cases covering requested behavior",
+        "Execute test suites and validate results",
+        "Achieve adequate test coverage"
+      ],
+      "scope": "Automated testing and test coverage",
+      "source": "default",
+      "when_not_to_use": "Not used for manual testing or exploratory verification",
+      "when_to_use": "When automated tests are required for new or modified behavior"
+    }
+  ],
+  "skills": [
+    {
+      "body": null,
+      "id": "fix-bug",
+      "inputs": [
+        "Bug report with reproduction steps",
+        "Expected behavior",
+        "Affected system or component"
+      ],
+      "outputs": [
+        "Bug fix code",
+        "Regression test",
+        "Root cause analysis"
+      ],
+      "required_tools": [],
+      "source": "default",
+      "trigger": "Diagnose and fix a reported bug.",
+      "usable_by_agents": [
+        "implementation-agent"
+      ],
+      "validation_criteria": [
+        "Bug successfully reproduced and fixed",
+        "Regression test passes",
+        "No new issues introduced"
+      ],
+      "workflow": [
+        "Reproduce the bug with a minimal test case.",
+        "Identify root cause by inspecting relevant code.",
+        "Implement a targeted fix with regression tests.",
+        "Verify the fix resolves the issue without side effects."
+      ]
+    },
+    {
+      "body": null,
+      "id": "implement-feature",
+      "inputs": [
+        "Feature specification or user story",
+        "Acceptance criteria",
+        "Design notes or API contracts"
+      ],
+      "outputs": [
+        "Implemented feature code",
+        "Unit tests",
+        "Integration test results"
+      ],
+      "required_tools": [],
+      "source": "default",
+      "trigger": "Implement a new feature or scoped change.",
+      "usable_by_agents": [
+        "implementation-agent"
+      ],
+      "validation_criteria": [
+        "All acceptance criteria met",
+        "Unit test coverage above 80%",
+        "Code review approval"
+      ],
+      "workflow": [
+        "Analyze requirements and acceptance criteria.",
+        "Write implementation code with appropriate abstractions.",
+        "Add unit tests covering normal and edge cases.",
+        "Verify integration with existing systems."
+      ]
+    },
+    {
+      "body": null,
+      "id": "review-change",
+      "inputs": [
+        "Pull request or diff",
+        "Change context and rationale",
+        "Test results"
+      ],
+      "outputs": [
+        "Code review feedback",
+        "Approval or requested changes",
+        "Summary of issues found"
+      ],
+      "required_tools": [],
+      "source": "default",
+      "trigger": "Independently review a diff before it is accepted.",
+      "usable_by_agents": [
+        "code-reviewer",
+        "architecture-guardian"
+      ],
+      "validation_criteria": [
+        "Review covers functional correctness",
+        "Test coverage assessment provided",
+        "Clear recommendations or approval given"
+      ],
+      "workflow": [
+        "Examine the diff for correctness and style compliance.",
+        "Verify tests adequately cover the changes.",
+        "Check for performance implications or security concerns.",
+        "Provide structured feedback or approval."
+      ]
+    },
+    {
+      "body": null,
+      "id": "run-regression-analysis",
+      "inputs": [
+        "Reported regression or behavior change",
+        "Recent code changes or deployment info",
+        "Test results showing the issue"
+      ],
+      "outputs": [
+        "Regression analysis report",
+        "Root cause identification",
+        "Recommended fix or workaround"
+      ],
+      "required_tools": [],
+      "source": "default",
+      "trigger": "Investigate a regression or unexpected behavior change.",
+      "usable_by_agents": [
+        "implementation-agent",
+        "test-agent"
+      ],
+      "validation_criteria": [
+        "Root cause clearly identified",
+        "Analysis reproducible",
+        "Recommendations prioritized"
+      ],
+      "workflow": [
+        "Define scope and identify potential causes.",
+        "Run tests to isolate the regression.",
+        "Compare behavior before and after change.",
+        "Document findings and recommend resolution."
+      ]
+    },
+    {
+      "body": null,
+      "id": "update-dependencies",
+      "inputs": [
+        "Dependency manifest or lock file",
+        "Update strategy (major/minor/patch)",
+        "Security advisory list (if any)"
+      ],
+      "outputs": [
+        "Updated dependency versions",
+        "Updated lock file",
+        "Test results and compatibility report"
+      ],
+      "required_tools": [],
+      "source": "default",
+      "trigger": "Check for and apply compatible dependency updates.",
+      "usable_by_agents": [
+        "dependency-agent"
+      ],
+      "validation_criteria": [
+        "Updates applied safely without breaking changes",
+        "All tests pass with new versions",
+        "Security advisories resolved"
+      ],
+      "workflow": [
+        "Scan dependencies for available updates.",
+        "Identify breaking changes in candidates.",
+        "Update compatible versions and lock file.",
+        "Run tests to verify compatibility."
+      ]
+    },
+    {
+      "body": null,
+      "id": "update-documentation",
+      "inputs": [
+        "Behavior change or new feature",
+        "Updated API signatures or configs",
+        "Related codebase changes"
+      ],
+      "outputs": [
+        "Updated documentation",
+        "Verified examples",
+        "Consistency check summary"
+      ],
+      "required_tools": [],
+      "source": "default",
+      "trigger": "Keep README/docs synchronized with a behavior change.",
+      "usable_by_agents": [
+        "documentation-agent"
+      ],
+      "validation_criteria": [
+        "Documentation matches current behavior",
+        "Examples tested and working",
+        "No orphaned or outdated references"
+      ],
+      "workflow": [
+        "Identify affected documentation sections.",
+        "Update docs to reflect new behavior or API.",
+        "Verify examples are correct and runnable.",
+        "Check for consistency with other docs."
+      ]
+    }
+  ]
+}

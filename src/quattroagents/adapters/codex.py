@@ -194,7 +194,7 @@ def render_codex(
     quattroagents_server_block = (
         "[mcp_servers.quattroagents]\n"
         'command = ".venv/bin/qagents"\n'
-        'args = ["mcp", "serve", "--project", "."]\n'
+        'args = ["mcp", "serve"]\n'
         'cwd = "."\n'
         "startup_timeout_sec = 10\n"
     )

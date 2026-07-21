@@ -236,7 +236,7 @@ def _render_settings_json(root: Path) -> str:
                     "hooks": [
                         {
                             "type": "command",
-                            "command": "qagents validate --format json",
+                            "command": "qagents validate",
                         }
                     ],
                 }
@@ -273,7 +273,7 @@ def _render_mcp_json(root: Path) -> str:
         "mcpServers": {
             "quattroagents": {
                 "command": "qagents",
-                "args": ["mcp", "serve", "--project", "."],
+                "args": ["mcp", "serve"],
             }
         }
     }

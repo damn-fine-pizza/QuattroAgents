@@ -174,7 +174,7 @@ def test_render_codex_creates_config_toml_with_defaults(tmp_path: Path) -> None:
     assert "quattroagents" in config["mcp_servers"]
     quattroagents_config = config["mcp_servers"]["quattroagents"]
     assert quattroagents_config["command"] == ".venv/bin/qagents"
-    assert quattroagents_config["args"] == ["mcp", "serve", "--project", "."]
+    assert quattroagents_config["args"] == ["mcp", "serve"]
     assert quattroagents_config["cwd"] == "."
     assert quattroagents_config["startup_timeout_sec"] == 10
 

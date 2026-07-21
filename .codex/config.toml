@@ -11,6 +11,6 @@ startup_timeout_sec = 10
 
 [mcp_servers.quattroagents]
 command = ".venv/bin/qagents"
-args = ["mcp", "serve", "--project", "."]
+args = ["mcp", "serve"]
 cwd = "."
 startup_timeout_sec = 10

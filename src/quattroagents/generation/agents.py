@@ -100,6 +100,7 @@ CANDIDATE_ROLES: dict[str, AgentDefinition] = {
         permissions=AgentPermissions(can_read_files=True, can_write_files=True),
         lifetime=AgentLifetime.PERMANENT,
         source=DefinitionSource.DEFAULT,
+        relevant_paths=["**/*"],
         responsibilities=[
             "Implement requested changes and features",
             "Follow established coding standards and patterns",
@@ -124,6 +125,7 @@ CANDIDATE_ROLES: dict[str, AgentDefinition] = {
         ),
         lifetime=AgentLifetime.PERMANENT,
         source=DefinitionSource.DEFAULT,
+        relevant_paths=["tests/**", "**/test_*.py", "**/*_test.py", "**/*.test.*", "**/*.spec.*"],
         responsibilities=[
             "Write automated test cases covering requested behavior",
             "Execute test suites and validate results",
@@ -146,6 +148,7 @@ CANDIDATE_ROLES: dict[str, AgentDefinition] = {
         permissions=AgentPermissions(can_read_files=True, can_write_files=True),
         lifetime=AgentLifetime.PERMANENT,
         source=DefinitionSource.DEFAULT,
+        relevant_paths=["features/**", "**/*.feature"],
         responsibilities=[
             "Write behavior-driven scenarios in Gherkin format",
             "Validate scenarios with stakeholders",
@@ -190,6 +193,7 @@ CANDIDATE_ROLES: dict[str, AgentDefinition] = {
         permissions=AgentPermissions(can_read_files=True, can_write_files=True),
         lifetime=AgentLifetime.PERMANENT,
         source=DefinitionSource.DEFAULT,
+        relevant_paths=["docs/**", "README*", "CHANGELOG*", "**/*.md"],
         responsibilities=[
             "Update documentation to reflect implemented changes",
             "Keep examples and usage docs synchronized",
@@ -214,6 +218,19 @@ CANDIDATE_ROLES: dict[str, AgentDefinition] = {
         ),
         lifetime=AgentLifetime.PERMANENT,
         source=DefinitionSource.DEFAULT,
+        relevant_paths=[
+            "package.json",
+            "package-lock.json",
+            "requirements*.txt",
+            "pyproject.toml",
+            "poetry.lock",
+            "Cargo.toml",
+            "Cargo.lock",
+            "go.mod",
+            "go.sum",
+            "Gemfile",
+            "Gemfile.lock",
+        ],
         responsibilities=[
             "Audit project dependencies for updates and security",
             "Apply dependency updates and resolve conflicts",
@@ -236,6 +253,7 @@ CANDIDATE_ROLES: dict[str, AgentDefinition] = {
         permissions=AgentPermissions(can_read_files=True, can_write_files=True),
         lifetime=AgentLifetime.PERMANENT,
         source=DefinitionSource.DEFAULT,
+        relevant_paths=[".github/workflows/**", ".gitlab-ci.yml", ".circleci/**", "Jenkinsfile"],
         responsibilities=[
             "Maintain CI/CD pipeline configuration",
             "Monitor and improve build health",
@@ -304,6 +322,7 @@ CANDIDATE_ROLES: dict[str, AgentDefinition] = {
         ),
         lifetime=AgentLifetime.PERMANENT,
         source=DefinitionSource.DEFAULT,
+        relevant_paths=["CHANGELOG*", "pyproject.toml", "package.json", "**/_version.py"],
         responsibilities=[
             "Bump version numbers according to semver",
             "Update changelogs with release notes",
