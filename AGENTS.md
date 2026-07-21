@@ -1,5 +1,19 @@
 # QuattroAgents
 
-State lives in `.quattroagents/`. Route by tier, use task contracts, keep L0/L1 concise, and escalate protected-kernel changes. Validate with `python -m quattroagents validate --format json`.
+QuattroAgents is a Project Agent Factory: an MCP server and CLI that analyze a
+target repository, interview the user, and generate/update tailored Claude and
+Codex agents and skills on disk. Canonical state per project lives in
+`.agent-factory/` (profile snapshots, decisions, interview sessions, the last
+generated manifest); rendered `.claude/agents/*.md`, `.claude/skills/*/SKILL.md`,
+`.codex/agents/*.toml`, `AGENTS.md` and `CLAUDE.md` are generated, derived
+output — treat manual edits to them as overrides the next `setup`/`generate_*`
+run will detect and refuse to silently clobber, not as source of truth.
+Validate with `qagents validate`.
 
-Work in waves. Before beginning a task, claim its contract and acquire a lease; renew the lease while working and release it when reporting. Dispatch native subagents in the same wave only for useful, independent work with non-overlapping file or contract scopes. Codex's coordinator manually dispatches and manages subagents with the native `spawn_agent`, `wait_agent`, `send_message`, and `followup_task` tools; there is no provider-neutral or QuattroAgents launcher. Give each worker only its packet: objective, requirements, allowed files, context and evidence references, claim and lease identity, acceptance commands, and result-envelope format. QuattroAgents MCP is the local control plane for tasks, claims, leases, runs, snapshots, artifacts, and evidence; it does not spawn or wait for Codex agents. `agents.max_threads` is only a concurrency ceiling for selected eligible work: it does not create, select, or promise QuattroAgents workers. Wait for every subagent in a wave before starting dependent work, then consolidate their evidence. Assign an independent reviewer who did not implement the change before completion.
+The MCP server (`qagents mcp serve`) exposes the same tool surface the CLI
+wraps — `analyze_project`, `setup`, `generate_agents`/`generate_skills`,
+`start_project_interview` and its follow-on interview tools, `record_decision`,
+`generate_swarm_plan`, `validate_generated_configuration`,
+`show_generation_diff` — one JSON-RPC `tools/call` per action, never blocking
+on interactive stdin. It does not spawn, dispatch, or wait for agents itself;
+use the Codex coordinator's native tools for that.

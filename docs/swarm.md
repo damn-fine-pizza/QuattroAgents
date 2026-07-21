@@ -1,59 +1,30 @@
-# Swarm planning
+# Swarm plan generation
 
-Swarm planning is a 0.2 dogfooding aid for bounded local work. `qagents swarm plan`
-is **plan-only**: it creates deterministic worker packets and does not launch,
-dispatch, wait for, or otherwise execute a fleet.
+`qagents swarm plan` generates deterministic wave-based schedules for agent groups. It is **plan-only**: it computes waves and lists required reviewers and completion criteria, but never launches, dispatches, or waits for agents.
 
-## Brownfield flow
+## Invocation
 
-1. Run `qagents analyze --project . --format json` to collect repository facts.
-2. Run `qagents interview --project . --interactive --format markdown` and collect the user's answers.
-3. Copy the confirmed interview record, intent, constraints and acceptance evidence into a task contract.
-4. Add optional `swarm_work_items` when work can be divided safely.
-5. Run `qagents swarm plan TASK-ID --project . --format markdown`.
+Provide a task identifier, goal statement, and agent roster from `qagents agents list` or `qagents agents generate`:
 
-The interview is mandatory and enforced by `swarm plan`: source code describes the current system, not the user's desired outcome.
-
-## Work-item shape
-
-```json
-{
-  "id": "docs",
-  "objective": "Document the new command",
-  "requirements": ["REQ-2"],
-  "allowed_files": ["README.md"],
-  "context_refs": ["docs/communication-protocol.md"],
-  "depends_on": []
-}
+```bash
+qagents swarm plan \
+  --task-id ID \
+  --goal "..." \
+  --agent-ids '[...]' \
+  --phases '{"agent-id":"phase-name"}' \
+  --depends-on '{"agent-id":["...","..."]}' \
+  --file-ownership '{"agent-id":["path/..."]}' \
+  --project .
 ```
 
-Every swarm task contract also requires this record from `qagents interview --interactive`:
+The same arguments are available via MCP tool `generate_swarm_plan`.
 
-```json
-{
-  "interview": {
-    "status": "confirmed",
-    "answers": {
-      "INTENT-1": "Desired outcome",
-      "INTENT-2": "Scope and exclusions",
-      "INTENT-3": "Acceptance evidence",
-      "INTENT-4": "Constraints and approvals",
-      "INTENT-5": "Parallel work and review choices"
-    }
-  }
-}
-```
+## Wave-based scheduling
 
-The planner schedules independent, non-overlapping items in the same wave and postpones overlapping file sets to a later wave. Every plan ends with an independent reviewer after all worker packets.
+The planner computes conflict-free execution waves using Kahn's algorithm: agents whose dependencies are satisfied are considered for inclusion in the next wave, but only if their file-ownership paths do not overlap with others already selected for that wave. Agents within a wave may run in parallel; overlapping file sets are deferred to later waves.
+
+The plan extracts mandatory reviewers (READ_ONLY agents) and completion criteria from agent definitions and active decisions.
 
 ## Boundaries
 
-This capability is deliberately below dispatch: it does not launch subagents, write
-immutable run snapshots, change routing or gates, activate configuration, or estimate
-optimization gains. In the 0.4 Codex workflow, a coordinator may consume these
-validated packets by using native Codex multi-agent tools; QuattroAgents MCP remains
-the task/claim/lease/run/snapshot/artifact/evidence control plane. Recording stays
-separate from lifecycle management and never itself launches a fleet. See
-[Codex multi-agent coordination](codex-multi-agent.md).
-
-The 0.2 interview and bounded-worker controls remain in force. Protected-kernel integration needs explicit human approval. A future, separate milestone may turn repeated deterministic local operations into agent skills, but only benchmark evidence may support a token or execution-time efficiency claim.
+This is a planning tool only: it does not modify routing, gates, configuration, or run state. Agent selection, phase names, dependencies, and file ownership are caller-provided inputs; the plan validates these and outputs waves, but never enforces or executes them.

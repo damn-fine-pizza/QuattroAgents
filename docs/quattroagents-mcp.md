@@ -30,7 +30,7 @@ QA_SOURCE="git+https://github.com/damn-fine-pizza/QuattroAgents.git@$QA_REF"
 
 ```sh
 codex mcp add quattroagents -- \
-  uvx --from "$QA_SOURCE" qagents mcp serve --project "$QA_ROOT"
+  uvx --from "$QA_SOURCE" qagents mcp serve
 
 codex mcp list
 ```
@@ -39,7 +39,7 @@ Without `uvx`, use `pipx` instead:
 
 ```sh
 codex mcp add quattroagents -- \
-  pipx run --spec "$QA_SOURCE" qagents mcp serve --project "$QA_ROOT"
+  pipx run --spec "$QA_SOURCE" qagents mcp serve
 ```
 
 Restart Codex, then use `/mcp` to inspect the connected server.
@@ -50,7 +50,7 @@ Use `project` to share configuration with the repository, `user` for every local
 
 ```sh
 claude mcp add --scope project quattroagents -- \
-  uvx --from "$QA_SOURCE" qagents mcp serve --project "$QA_ROOT"
+  uvx --from "$QA_SOURCE" qagents mcp serve
 
 claude mcp list
 ```
@@ -59,7 +59,7 @@ Without `uvx`, use `pipx` instead:
 
 ```sh
 claude mcp add --scope project quattroagents -- \
-  pipx run --spec "$QA_SOURCE" qagents mcp serve --project "$QA_ROOT"
+  pipx run --spec "$QA_SOURCE" qagents mcp serve
 ```
 
 Restart Claude Code after adding the server.
@@ -71,7 +71,7 @@ The generated project configuration uses the editable local virtualenv:
 ```toml
 [mcp_servers.quattroagents]
 command = ".venv/bin/qagents"
-args = ["mcp", "serve", "--project", "."]
+args = ["mcp", "serve"]
 ```
 
 This is the recommended development channel: source edits are available to the next server process without reinstalling QuattroAgents. Restart Codex or Claude after any change to MCP code, tool definitions or the control-plane schema. Reinstall only after changing dependencies, package metadata (including the version), or console entry points:
@@ -80,7 +80,7 @@ This is the recommended development channel: source edits are available to the n
 .venv/bin/python -m pip install -e ".[dev]"
 ```
 
-Use `.venv/bin/python -m quattroagents doctor --format json` and `git rev-parse --short=12 HEAD` together to confirm the package version and source revision. A release tag is a stable channel; the local editable checkout is the latest development channel.
+Use `.venv/bin/python -m quattroagents doctor` and `git rev-parse --short=12 HEAD` together to confirm the package version and source revision. A release tag is a stable channel; the local editable checkout is the latest development channel.
 
 ## Project checkout alternative
 
@@ -89,10 +89,7 @@ For development of QuattroAgents itself, use its virtualenv and generate both pr
 ```sh
 .venv/bin/python -m quattroagents setup \
   --project . \
-  --providers codex,claude \
-  --profile economy \
-  --install-mcp recommended \
-  --yes
+  --providers codex,claude
 ```
 
 ## Manual configuration
@@ -110,8 +107,6 @@ args = [
   "qagents",
   "mcp",
   "serve",
-  "--project",
-  ".",
 ]
 cwd = "."
 startup_timeout_sec = 10
@@ -129,9 +124,7 @@ For Claude, add this entry to project `.mcp.json`:
         "git+https://github.com/damn-fine-pizza/QuattroAgents.git@main",
         "qagents",
         "mcp",
-        "serve",
-        "--project",
-        "."
+        "serve"
       ]
     }
   }

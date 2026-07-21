@@ -1,35 +1,38 @@
 # Providers
 
-Codex generation uses trusted project `.codex/config.toml`, `AGENTS.md`, skills and agents. Existing Codex MCP servers are retained while QuattroAgents is configured through `.venv/bin/qagents`. Claude generation uses `CLAUDE.md`, `.claude/agents`, skills, settings and project `.mcp.json`. The adapter does not store credentials. Setup writes project-local Git hooks that use `.venv/bin/python` for validation, tests, linting and type checks.
+Agents and skills are rendered from a shared internal domain model (`AgentDefinition` and `SkillDefinition`) through per-provider adapters: `render_claude()` and `render_codex()`. Each adapter writes provider-specific configuration files to its corresponding directory tree.
 
-For Codex multi-agent work, agent lifecycle is intentionally provider-specific: the
-Codex coordinator uses the native Codex multi-agent tools to spawn, message and wait
-for workers. QuattroAgents MCP does not launch agents; it coordinates the durable
-task contract, claim, lease, run, snapshot, artifact and evidence records. The
-`qagents swarm plan` command remains plan-only. `max_threads`, where configured, is
-a concurrency ceiling chosen by the coordinator, not an automatic spawning command
-and not a number promised by QuattroAgents. See [Codex multi-agent coordination](codex-multi-agent.md).
+## Adapter outputs
 
-`scripts/setup.sh` optionally detects installed `rtk` and `codebase-memory-mcp` commands. Detection is re-runnable, makes no installation or MCP configuration changes, and reports a missing command without failing setup. Development tools (`pytest`, `ruff`, and `mypy`) are installed in `.venv`; use `scripts/rtk.sh` to make them available to RTK without global installs. `qagents doctor --format json` reports executable availability; it does not assert that an MCP server is configured or reachable.
+**Claude adapter** (`src/quattroagents/adapters/claude.py`) writes:
+- `.claude/agents/{agent.id}.md` — agent definition with YAML frontmatter and responsibilities, scope, tools, completion/escalation criteria, and collaboration notes
+- `.claude/skills/{skill.id}/SKILL.md` — skill definition with workflow, inputs, outputs, required tools, validation criteria, and usable-by list
+- `.claude/settings.json` — Claude Code permissions and hooks configuration, merged with any existing content
+- `.mcp.json` — MCP server configuration including the QuattroAgents server entry, merged with existing servers
 
-CI validates both generated adapters: Codex configuration, roles, skills and MCP preservation; and Claude settings, agents, skills and MCP configuration. See [quality gates](gates.md) for the exact installation, verification and delivery checks.
+**Codex adapter** (`src/quattroagents/adapters/codex.py`) writes:
+- `.codex/agents/{agent.id}.toml` — agent definition in Codex TOML format with description, model reasoning effort, and developer instructions
+- `.agents/skills/{skill.id}/SKILL.md` — skill definition in markdown (same format as Claude)
+- `.codex/config.toml` — Codex configuration with MCP server settings; existing Codex MCP servers are preserved, and the QuattroAgents server entry is added or updated
+- `AGENTS.md` — project documentation noting that generated agents and skills live in `.codex/agents/` and `.agents/skills/`, and that state lives in `.agent-factory/`
 
-For the QuattroAgents MCP server, see the [installation guide](quattroagents-mcp.md). It covers direct `mcp add` configuration for Codex and Claude with either an isolated GitHub-backed runner or a project virtualenv.
+## Generated-file protection
+
+Both adapters use `GeneratedFileGuard` (from `src/quattroagents/persistence.py`) to prevent silently clobbering hand-edited files. The guard implements a "generated base + manual overrides" pattern:
+
+1. When a file is first generated, its SHA-256 hash is recorded in `.agent-factory/overrides/{sanitized-relative-path}.json`
+2. Before regenerating, the guard compares the on-disk file's hash against the recorded hash
+3. If the hashes match, the file is safe to overwrite (no manual edits since generation)
+4. If they differ, the file has been manually edited — the guard refuses to overwrite and reports a conflict instead
+
+This ensures that hand-edits to generated files are never silently lost.
+
+## Credentials and configuration
+
+The adapters do not store credentials. Both adapters perform a shallow merge when writing configuration files (`.claude/settings.json`, `.claude/.mcp.json`, `.codex/config.toml`), preserving any pre-existing top-level keys while replacing only their own namespace. This allows manual configuration (credentials, additional servers, or settings) to coexist with generated content.
 
 ## Orchestration skill
 
-`qagents-orchestrate` is a generated provider skill. It is written to
-`.agents/skills/` only when QuattroAgents explicitly sets up or renders the
-`codex` provider, and to `.claude/skills/` only when it explicitly sets up or
-renders `claude`. Installing or upgrading QuattroAgents does not add it to an
-already configured project; rerun setup or explicitly render the relevant
-provider to opt in.
+`qagents-orchestrate` is a generated provider skill. It is written to `.agents/skills/` only when QuattroAgents explicitly sets up or renders the `codex` provider, and to `.claude/skills/` only when it explicitly sets up or renders `claude`. Installing or upgrading QuattroAgents does not add it to an already-configured project; rerun setup or explicitly render the relevant provider to opt in.
 
-The skill is conversationally autonomous once the task, project state, and any
-required confirmed interview provide the material answers. It does not pause for
-routine status checks or permission for ordinary in-scope work. Its hard stops
-are a genuine blocker or a human decision that materially changes scope, risk,
-or protected-path approval. It does not introduce a daemon, generic dispatcher,
-automatic configuration, remote service, or LLM runner: provider-native agents
-remain provider-managed, while the QuattroAgents MCP records the control-plane
-state only.
+For the QuattroAgents MCP server, see the [installation guide](quattroagents-mcp.md). It covers direct `mcp add` configuration for Codex and Claude with either an isolated GitHub-backed runner or a project virtualenv.

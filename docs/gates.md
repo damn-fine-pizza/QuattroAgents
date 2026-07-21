@@ -1,42 +1,73 @@
 # Gates
 
-Hard gates protect the central routing, configuration, control-plane, validation and canonical policy files. Runtime gates require contracts, scope, evidence and acceptance commands. The strictest gate wins.
+The quality gates run in two places: locally via Git hooks (fast feedback during development) and on GitHub Actions (authoritative post-merge verification). Both gates are designed to catch configuration issues, code quality problems, and test failures before they land on the main branch.
 
-## CI quality gates
+## GitHub Actions workflow
 
-The GitHub Actions workflow runs after a push to `main` and can be started manually. With a protected `main` that accepts only pull-request merges, this runs once per merge and avoids duplicate PR compute. It intentionally provides post-merge evidence, not a GitHub pre-merge check.
+The workflow defined in `.github/workflows/ci.yml` runs after a push to `main` and can be started manually. With a protected `main` that accepts only pull-request merges, this ensures that the gates run once per merge and produce authoritative post-merge evidence (not a GitHub pre-merge check).
 
-Maintainers can also start the complete workflow from the repository **Actions** page: select **Quality gates**, choose **Run workflow**, and select the `main` branch or another branch containing the workflow file.
+Maintainers can also manually trigger the workflow from the repository **Actions** page: select **Quality gates**, choose **Run workflow**, and select the `main` branch (or another branch containing the workflow file).
 
-| Gate | Command or evidence | Purpose |
+### CI jobs
+
+| Job | Steps | Purpose |
 | --- | --- | --- |
-| Install smoke | `.venv/bin/python -m pip install .` and `-m quattroagents --help` on Python 3.11 and 3.12 | Verify a clean runtime installation on the supported range. |
-| Test suite | `.venv/bin/python -m pytest` | Verify unit and integration behavior. |
-| Static quality | Ruff check, Ruff format check, and mypy | Enforce lint, formatting, and strict types. |
-| QuattroAgents validation | `.venv/bin/python -m quattroagents validate --format json` | Verify canonical project state. |
-| Delivery artifact | `.venv/bin/python -m build` plus uploaded `dist/` artifact | Verify that an installable sdist and wheel can be produced. |
-| Provider adapters | Targeted adapter/setup tests for Codex and Claude | Verify generated configuration, skills, agents, MCP settings, and hooks. |
+| Install smoke test | `.venv/bin/python -m pip install .` and `.venv/bin/python -m quattroagents --help` on Python 3.11 and 3.12 | Verify clean runtime installation across supported Python versions. |
+| Quality gates | pytest, ruff check, ruff format check, mypy, qagents validate, build | Run the complete quality suite and verify deliverable artifacts. |
+| Provider gates | pytest on `tests/integration/test_adapters_claude.py` and `tests/integration/test_adapters_codex.py` | Verify generated configuration, skills, agents, MCP settings, and hook output for both providers. |
 
-The CI workflow is a versioned operational policy, not a replacement for `.quattroagents/quality-gates.json`. Changes to that authoritative protected configuration still require human approval.
+## Local Git hooks
 
-`qagents setup --yes` writes the same project-local `.githooks/pre-push` suite and activates it through `git config core.hooksPath .githooks` when the target is a Git repository. It runs the test suite, Ruff check and format check, mypy, QuattroAgents validation, and build before a push. Git hooks are a local safety net and can be bypassed, so maintainers should also protect `main` against direct pushes. Do not configure this workflow's status checks as required for PR merges: it does not run on `pull_request` events.
+`scripts/setup.sh` (or manual `git config core.hooksPath .githooks`) activates project-local Git hooks. This is a repository dev-bootstrap step, separate from `qagents setup`, which only analyzes and renders agent/skill configuration and never touches Git hook configuration. These hooks are a fast, local safety net; they can be bypassed, so maintainers should also protect `main` against direct pushes.
 
-The lighter `.githooks/pre-commit` gate runs project validation, Ruff linting, and
-Ruff's format check. It catches an unformatted change before a commit is created;
-the pre-push gate remains the complete local suite.
+### Pre-commit hook
+
+`.githooks/pre-commit` runs three lightweight checks:
+- `.venv/bin/python -m quattroagents validate --project .` — verify agent and skill definitions
+- `.venv/bin/python -m ruff check .` — lint check
+- `.venv/bin/python -m ruff format --check .` — formatting check
+
+This hook catches configuration and formatting issues before a commit is created.
+
+### Pre-push hook
+
+`.githooks/pre-push` runs the complete quality suite before a push:
+- `.venv/bin/python -m quattroagents validate --project .` — verify agent and skill definitions
+- `.venv/bin/python -m pytest` — run all tests
+- `.venv/bin/python -m ruff check .` — lint check
+- `.venv/bin/python -m ruff format --check .` — formatting check
+- `.venv/bin/python -m mypy src` — strict type checking
+- `.venv/bin/python -m build` — verify the package can be built
+
+## Configuration validation
+
+`qagents validate --project .` (or `python -m quattroagents validate`) performs the following checks:
+
+1. **Duplicate identifiers** — detects duplicate agent or skill IDs
+2. **Completion criteria** — ensures all agents declare completion criteria
+3. **Skill triggers or workflow** — ensures skills declare either a trigger or workflow steps
+4. **Write-mode limits** — checks that write-enabled agents declare constraints or relevant paths
+5. **Valid references** — ensures skills and swarm agents reference known agents
+6. **Circular dependencies** — detects cycles in swarm agent dependencies
+7. **Tool availability** — verifies that agents' mandatory tools are available
+8. **Agent display format** — validates agent display lines follow the canonical format
+
+The validation produces a report that indicates whether the configuration is valid or lists violations by code, message, and path.
 
 ## Manual releases
 
-`.github/workflows/release.yml` is deliberately manual. A maintainer first merges
-the version change to `main`, creates and pushes the matching existing `vX.Y.Z`
-tag, then dispatches the workflow with that tag and a numeric build identifier.
-The workflow checks out that exact tag, requires its package version to match,
-reruns the complete quality suite, builds the sdist and wheel, and creates the
-GitHub release named `vX.Y.Z build N`. It never creates, moves, or deletes tags.
+`.github/workflows/release.yml` is deliberately manual and produces no automatic releases. To release:
+
+1. Merge the version change to `main`
+2. Create and push the matching tag (e.g., `v1.0.0`)
+3. Dispatch the workflow with that tag and a numeric build identifier
+4. The workflow checks out that exact tag, verifies the package version matches, reruns the complete quality suite, builds the sdist and wheel, and creates a GitHub release
+
+The workflow never creates, moves, or deletes tags — it only packages and releases a tag you provide.
 
 ## Install local gate tools
 
-Install all Python gate tools in the project virtual environment; do not rely on globally installed Python packages.
+Install all Python gate tools in the project virtual environment; do not rely on globally installed packages.
 
 ```sh
 python3 -m venv .venv
@@ -44,26 +75,28 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -e ".[dev]"
 ```
 
-This one command installs the package itself (`quattroagents` and `qagents`) and every Python command used by the gates:
+This single command installs the package (`quattroagents` and `qagents`) and all Python tools used by the gates:
 
-| Command | Installation |
+| Command | Source |
 | --- | --- |
-| `.venv/bin/python -m pytest` | Included in `.[dev]`. |
-| `.venv/bin/python -m ruff` | Included in `.[dev]`. |
-| `.venv/bin/python -m mypy` | Included in `.[dev]`. |
-| `.venv/bin/python -m build` | Included in `.[dev]`. |
-| `.venv/bin/python -m quattroagents` | Installed from this checkout by `-e ".[dev]"`; use it instead of a global `qagents`. |
+| `.venv/bin/python -m pytest` | Included in `.[dev]` extras |
+| `.venv/bin/python -m ruff` | Included in `.[dev]` extras |
+| `.venv/bin/python -m mypy` | Included in `.[dev]` extras |
+| `.venv/bin/python -m build` | Included in `.[dev]` extras |
+| `.venv/bin/python -m quattroagents` | Installed from this checkout via `-e ".[dev]"` |
 
-`actionlint` checks GitHub Actions YAML and is optional for local work; GitHub remains the final workflow runner. Install it outside the Python environment with one of the official methods:
+### Optional: actionlint
+
+`actionlint` validates GitHub Actions YAML and is optional for local work (GitHub Actions remains the authoritative runner). Install it outside the Python environment:
 
 ```sh
 # macOS or Linux with Homebrew
 brew install actionlint
 
-# Any platform with Go installed; ensure "$(go env GOPATH)/bin" is on PATH
+# Any platform with Go installed (ensure "$(go env GOPATH)/bin" is on PATH)
 go install github.com/rhysd/actionlint/cmd/actionlint@latest
 ```
 
-Then run `actionlint .github/workflows/ci.yml .github/workflows/release.yml`.
-The [actionlint project documentation](https://github.com/rhysd/actionlint#readme)
-also provides signed release binaries and container-based alternatives.
+Then run: `actionlint .github/workflows/ci.yml .github/workflows/release.yml`
+
+See the [actionlint documentation](https://github.com/rhysd/actionlint#readme) for signed release binaries and container-based alternatives.
